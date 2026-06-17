@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reservar mesa - Sidrería El Tonel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5efe6;
+      padding: 24px;
+    }
+
+    .box {
+      max-width: 520px;
+      margin: auto;
+      background: white;
+      padding: 24px;
+      border-radius: 14px;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    button {
+      background: #234b36;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Sidrería El Tonel</h1>
+    <h2>Solicitar reserva</h2>
+
+    <form id="formReservaPublica">
+      <input id="nombre" placeholder="Nombre" required />
+      <input id="telefono" placeholder="Teléfono" required />
+      <input id="personas" type="number" placeholder="Personas" required />
+      <input id="fecha" type="date" required />
+      <input id="hora" type="time" required />
+      <input id="observaciones" placeholder="Observaciones" />
+      <button type="submit">Solicitar reserva</button>
+    </form>
+
+    <p id="mensaje"></p>
+  </div>
+
+  <script>
+    const API_URL = "http://127.0.0.1:8000";
+
+    document.querySelector("#formReservaPublica").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const reserva = {
+        cliente_nombre: document.querySelector("#nombre").value,
+        cliente_telefono: document.querySelector("#telefono").value,
+        personas: Number(document.querySelector("#personas").value),
+        fecha: document.querySelector("#fecha").value,
+        hora: document.querySelector("#hora").value,
+        observaciones: document.querySelector("#observaciones").value,
+      };
+
+      const response = await fetch(`${API_URL}/reservas/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(reserva),
+      });
+
+      const mensaje = document.querySelector("#mensaje");
+
+      if (!response.ok) {
+        mensaje.textContent = "No se pudo enviar la reserva.";
+        return;
+      }
+
+      e.target.reset();
+      mensaje.textContent = "Reserva enviada. El restaurante la confirmará desde la app.";
+    });
+  </script>
+</body>
+</html>

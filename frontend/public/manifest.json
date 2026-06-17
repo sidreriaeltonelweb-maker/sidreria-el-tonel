@@ -1,0 +1,21 @@
+{
+  "name": "Sidrería El Tonel",
+  "short_name": "El Tonel",
+  "description": "Panel de reservas de Sidrería El Tonel",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5efe6",
+  "theme_color": "#234b36",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
