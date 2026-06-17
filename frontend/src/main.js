@@ -87,9 +87,23 @@ function renderPanel() {
 
     <div id="reservas"></div>
 
-    <h2>Mesas</h2>
-    <button id="cargarMesas">Cargar mesas</button>
-    <div id="mesas" class="mesas-grid"></div>
+    <h2>Plano de mesas</h2>
+
+  <div class="leyenda">
+    <span>🟢 Libre</span>
+    <span>🟡 Pendiente</span>
+    <span>🔴 Confirmada</span>
+    <span>⚫ Inactiva</span>
+  </div>
+
+  <button id="cargarMesas">
+    Actualizar plano
+  </button>
+
+  <div id="mesas" class="mesas-grid"></div>
+
+<button id="cargarMesas">Cargar mesas</button>
+<div id="mesas" class="mesas-grid"></div>
 
     ${
       usuarioActual.rol === "admin"
