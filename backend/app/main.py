@@ -1,19 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.core.config import settings
 from app.api.auth import router as auth_router
-from app.api.tables import router as tables_router
-from app.api.reservations import router as reservations_router
 from app.api.dashboard import router as dashboard_router
+from app.api.reservations import router as reservations_router
+from app.api.tables import router as tables_router
 from app.api.users import router as users_router
+from app.core.config import settings
 
-app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version="1.0.0"
-)
-
-origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",")]
+app = FastAPI(title=settings.PROJECT_NAME, version="1.0.0")
+origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,8 +27,4 @@ app.include_router(users_router)
 
 @app.get("/")
 def root():
-    return {
-        "restaurante": "Sidrería El Tonel",
-        "estado": "online",
-        "entorno": settings.ENVIRONMENT
-    }
+    return {"restaurante": "Sidrería El Tonel", "estado": "online", "entorno": settings.ENVIRONMENT}

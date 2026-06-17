@@ -1,12 +1,10 @@
-from sqlalchemy import Column, Integer, String, Date, Time, DateTime, ForeignKey
 from datetime import datetime
-
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Time
 from app.db.database import Base
 
 
 class Reservation(Base):
     __tablename__ = "reservas"
-
     id = Column(Integer, primary_key=True, index=True)
     cliente_nombre = Column(String, nullable=False)
     cliente_telefono = Column(String, nullable=False)

@@ -1,7 +1,7 @@
 from app.db.database import Base, engine
-from app.models.user import User
-from app.models.table import Table
 from app.models.reservation import Reservation
+from app.models.table import Table
+from app.models.user import User
 
 
 def init_db():

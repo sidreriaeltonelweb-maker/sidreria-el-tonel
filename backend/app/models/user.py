@@ -1,12 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from datetime import datetime
-
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from app.db.database import Base
 
 
 class User(Base):
     __tablename__ = "usuarios"
-
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)

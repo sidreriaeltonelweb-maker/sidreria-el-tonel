@@ -1,8 +1,7 @@
 from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-
 from app.core.config import settings
 from app.core.security import ALGORITHM
 from app.db.database import get_db
@@ -11,18 +10,9 @@ from app.models.user import User
 security = HTTPBearer()
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-):
-    token = credentials.credentials
-
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[ALGORITHM]
-        )
+        payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido")
@@ -31,10 +21,8 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Token inválido")
 
     user = db.query(User).filter(User.email == email).first()
-
     if not user or not user.activo:
         raise HTTPException(status_code=401, detail="Usuario no autorizado")
-
     return user
 
 

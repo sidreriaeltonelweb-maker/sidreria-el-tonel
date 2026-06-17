@@ -1,11 +1,12 @@
 const API_URL = "http://127.0.0.1:8000";
+
 let usuarioActual = null;
 let token = null;
 
 function authHeaders() {
   return {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`
+    Authorization: `Bearer ${token}`,
   };
 }
 
@@ -46,25 +47,30 @@ document.querySelector("#formLogin").addEventListener("submit", async (e) => {
   token = data.access_token;
 
   document.querySelector("#formLogin").style.display = "none";
+  renderPanel();
+});
 
+function renderPanel() {
   document.querySelector("#panel").innerHTML = `
     <p><strong>Usuario:</strong> ${usuarioActual.nombre}</p>
     <p><strong>Rol:</strong> ${usuarioActual.rol}</p>
 
-    ${usuarioActual.rol !== "empleado" ? `
-<h2>Nueva reserva</h2>
-
-<form id="formReserva" class="form">` : ""}
-
-    <form id="formReserva" class="form">
-      <input id="nombre" placeholder="Nombre del cliente" required />
-      <input id="telefono" placeholder="Teléfono" required />
-      <input id="personas" type="number" placeholder="Personas" required />
-      <input id="fecha" type="date" required />
-      <input id="hora" type="time" required />
-      <input id="observaciones" placeholder="Observaciones" />
-      <button type="submit">Crear reserva</button>
-    </form>
+    ${
+      usuarioActual.rol !== "empleado"
+        ? `
+      <h2>Nueva reserva</h2>
+      <form id="formReserva" class="form">
+        <input id="nombre" placeholder="Nombre del cliente" required />
+        <input id="telefono" placeholder="Teléfono" required />
+        <input id="personas" type="number" placeholder="Personas" required />
+        <input id="fecha" type="date" required />
+        <input id="hora" type="time" required />
+        <input id="observaciones" placeholder="Observaciones" />
+        <button type="submit">Crear reserva</button>
+      </form>
+    `
+        : ""
+    }
 
     <h2>Panel de reservas</h2>
 
@@ -84,17 +90,36 @@ document.querySelector("#formLogin").addEventListener("submit", async (e) => {
     <h2>Mesas</h2>
     <button id="cargarMesas">Cargar mesas</button>
     <div id="mesas" class="mesas-grid"></div>
-${usuarioActual.rol === "admin" ? `
-  <h2>Gestión de mesas</h2>
 
-  <form id="formMesa" class="form">
-    <input id="mesaNombre" placeholder="Nombre de la mesa" required />
-    <input id="mesaCapacidad" type="number" placeholder="Capacidad" required />
-    <input id="mesaZona" placeholder="Zona" value="principal" />
+    ${
+      usuarioActual.rol === "admin"
+        ? `
+      <h2>Gestión de mesas</h2>
+      <form id="formMesa" class="form">
+        <input id="mesaNombre" placeholder="Nombre de la mesa" required />
+        <input id="mesaCapacidad" type="number" placeholder="Capacidad" required />
+        <input id="mesaZona" placeholder="Zona" value="principal" />
+        <button type="submit">Crear mesa</button>
+      </form>
 
-    <button type="submit">Crear mesa</button>
-  </form>
-` : ""}
+      <h2>Gestión de usuarios</h2>
+      <form id="formUsuario" class="form">
+        <input id="usuarioNombre" placeholder="Nombre" required />
+        <input id="usuarioEmail" placeholder="Email" required />
+        <input id="usuarioPassword" type="password" placeholder="Contraseña" required />
+        <select id="usuarioRol">
+          <option value="empleado">Empleado</option>
+          <option value="encargado">Encargado</option>
+          <option value="admin">Administrador</option>
+        </select>
+        <button type="submit">Crear usuario</button>
+      </form>
+
+      <button id="cargarUsuarios">Cargar usuarios</button>
+      <div id="usuarios"></div>
+    `
+        : ""
+    }
 
     <h2>Calendario diario</h2>
     <div class="filters">
@@ -102,46 +127,35 @@ ${usuarioActual.rol === "admin" ? `
       <button id="cargarCalendario">Ver día</button>
     </div>
     <div id="calendario" class="calendario"></div>
-
-    ${usuarioActual.rol === "admin" ? `
-  <h2>Gestión de usuarios</h2>
-
-  <form id="formUsuario" class="form">
-    <input id="usuarioNombre" placeholder="Nombre" required />
-    <input id="usuarioEmail" placeholder="Email" required />
-    <input id="usuarioPassword" type="password" placeholder="Contraseña" required />
-
-    <select id="usuarioRol">
-      <option value="empleado">Empleado</option>
-      <option value="encargado">Encargado</option>
-      <option value="admin">Administrador</option>
-    </select>
-
-    <button type="submit">Crear usuario</button>
-  </form>
-
-  <button id="cargarUsuarios">Cargar usuarios</button>
-  <div id="usuarios"></div>
-` : ""}
   `;
 
   conectarEventosPanel();
-});
+}
 
 function conectarEventosPanel() {
-  if (document.querySelector("#formReserva")) {
-  document.querySelector("#formReserva").addEventListener("submit", crearReserva);
-}
   document.querySelector("#cargarReservas").addEventListener("click", cargarReservas);
   document.querySelector("#cargarMesas").addEventListener("click", cargarMesas);
   document.querySelector("#cargarCalendario").addEventListener("click", cargarCalendario);
-  if (document.querySelector("#formUsuario")) {
-  document.querySelector("#formUsuario").addEventListener("submit", crearUsuario);
-}
 
-if (document.querySelector("#cargarUsuarios")) {
-  document.querySelector("#cargarUsuarios").addEventListener("click", cargarUsuarios);
-}
+  const formReserva = document.querySelector("#formReserva");
+  if (formReserva) {
+    formReserva.addEventListener("submit", crearReserva);
+  }
+
+  const formMesa = document.querySelector("#formMesa");
+  if (formMesa) {
+    formMesa.addEventListener("submit", crearMesa);
+  }
+
+  const formUsuario = document.querySelector("#formUsuario");
+  if (formUsuario) {
+    formUsuario.addEventListener("submit", crearUsuario);
+  }
+
+  const cargarUsuariosBtn = document.querySelector("#cargarUsuarios");
+  if (cargarUsuariosBtn) {
+    cargarUsuariosBtn.addEventListener("click", cargarUsuarios);
+  }
 }
 
 async function crearReserva(e) {
@@ -158,7 +172,7 @@ async function crearReserva(e) {
 
   const response = await fetch(`${API_URL}/reservas/`, {
     method: "POST",
-   headers: authHeaders(),
+    headers: authHeaders(),
     body: JSON.stringify(reserva),
   });
 
@@ -169,24 +183,28 @@ async function crearReserva(e) {
 
   e.target.reset();
   await cargarReservas();
+  await cargarMesas();
 }
-function authHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`
-  };
-}
+
 async function cargarReservas() {
   const fecha = document.querySelector("#filtroFecha").value;
   const estado = document.querySelector("#filtroEstado").value;
 
   const params = new URLSearchParams();
+
   if (fecha) params.append("fecha", fecha);
   if (estado) params.append("estado", estado);
 
-  const response = await fetch(`${API_URL}/reservas/?${params.toString()}`);
-  const reservas = await response.json();
+  const response = await fetch(`${API_URL}/reservas/?${params.toString()}`, {
+    headers: authHeaders(),
+  });
 
+  if (!response.ok) {
+    alert("No se pudieron cargar las reservas");
+    return;
+  }
+
+  const reservas = await response.json();
   const contenedor = document.querySelector("#reservas");
 
   if (reservas.length === 0) {
@@ -194,29 +212,37 @@ async function cargarReservas() {
     return;
   }
 
-  contenedor.innerHTML = reservas.map((reserva) => `
-    <div class="card">
-      <h3>${reserva.cliente_nombre}</h3>
-      <p><strong>Teléfono:</strong> ${reserva.cliente_telefono}</p>
-      <p><strong>Personas:</strong> ${reserva.personas}</p>
-      <p><strong>Fecha:</strong> ${reserva.fecha}</p>
-      <p><strong>Hora:</strong> ${reserva.hora}</p>
-      <p><strong>Estado:</strong> ${reserva.estado}</p>
-      <p><strong>Mesa:</strong> ${reserva.mesa_id ?? "Sin asignar"}</p>
+  contenedor.innerHTML = reservas
+    .map(
+      (reserva) => `
+      <div class="card">
+        <h3>${reserva.cliente_nombre}</h3>
+        <p><strong>Teléfono:</strong> ${reserva.cliente_telefono}</p>
+        <p><strong>Personas:</strong> ${reserva.personas}</p>
+        <p><strong>Fecha:</strong> ${reserva.fecha}</p>
+        <p><strong>Hora:</strong> ${reserva.hora}</p>
+        <p><strong>Estado:</strong> ${reserva.estado}</p>
+        <p><strong>Mesa:</strong> ${reserva.mesa_id ?? "Sin asignar"}</p>
 
-      ${usuarioActual.rol !== "empleado" ? `
-  <button onclick="confirmarReserva(${reserva.id})">Confirmar</button>
-  <button onclick="cancelarReserva(${reserva.id})" class="danger">Cancelar</button>
-` : ""}
-    </div>
-  `).join("");
+        ${
+          usuarioActual.rol !== "empleado"
+            ? `
+          <button onclick="confirmarReserva(${reserva.id})">Confirmar</button>
+          <button onclick="cancelarReserva(${reserva.id})" class="danger">Cancelar</button>
+        `
+            : ""
+        }
+      </div>
+    `
+    )
+    .join("");
 }
 
 async function confirmarReserva(id) {
- const response = await fetch(`${API_URL}/reservas/${id}/confirmar`, {
-  method: "PATCH",
-  headers: authHeaders(),
-});
+  const response = await fetch(`${API_URL}/reservas/${id}/confirmar`, {
+    method: "PATCH",
+    headers: authHeaders(),
+  });
 
   if (!response.ok) {
     alert("No se pudo confirmar la reserva");
@@ -229,9 +255,9 @@ async function confirmarReserva(id) {
 
 async function cancelarReserva(id) {
   const response = await fetch(`${API_URL}/reservas/${id}/cancelar`, {
-  method: "PATCH",
-  headers: authHeaders(),
-});
+    method: "PATCH",
+    headers: authHeaders(),
+  });
 
   if (!response.ok) {
     alert("No se pudo cancelar la reserva");
@@ -243,32 +269,74 @@ async function cancelarReserva(id) {
 }
 
 async function cargarMesas() {
-  const response = await fetch(`${API_URL}/mesas/`, {
-  method: "POST",
-  headers: authHeaders(),
-  body: JSON.stringify(mesa),
-});
-const response = await fetch(`${API_URL}/mesas/${id}`, {
-  method: "DELETE",
-  headers: authHeaders(),
-});
+  const response = await fetch(`${API_URL}/dashboard/mesas`);
+
+  if (!response.ok) {
+    alert("No se pudieron cargar las mesas");
+    return;
+  }
+
   const mesas = await response.json();
 
-  const contenedor = document.querySelector("#mesas");
+  document.querySelector("#mesas").innerHTML = mesas
+    .map(
+      (mesa) => `
+      <div class="mesa-card mesa-${mesa.estado}">
+        <h3>${mesa.nombre}</h3>
+        <p>${mesa.capacidad} personas</p>
+        <p>${mesa.estado}</p>
 
-  contenedor.innerHTML = mesas.map((mesa) => `
-    <div class="mesa-card mesa-${mesa.estado}">
-      <h3>${mesa.nombre}</h3>
-      <p>${mesa.capacidad} personas</p>
-      <p>${mesa.estado}</p>
+        ${
+          usuarioActual.rol === "admin"
+            ? `
+          <button onclick="desactivarMesa(${mesa.id})" class="danger">
+            Desactivar
+          </button>
+        `
+            : ""
+        }
+      </div>
+    `
+    )
+    .join("");
+}
 
-      ${usuarioActual.rol === "admin" ? `
-        <button onclick="desactivarMesa(${mesa.id})" class="danger">
-          Desactivar
-        </button>
-      ` : ""}
-    </div>
-  `).join("");
+async function crearMesa(e) {
+  e.preventDefault();
+
+  const mesa = {
+    nombre: document.querySelector("#mesaNombre").value,
+    capacidad: Number(document.querySelector("#mesaCapacidad").value),
+    zona: document.querySelector("#mesaZona").value,
+  };
+
+  const response = await fetch(`${API_URL}/mesas/`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(mesa),
+  });
+
+  if (!response.ok) {
+    alert("No se pudo crear la mesa");
+    return;
+  }
+
+  e.target.reset();
+  await cargarMesas();
+}
+
+async function desactivarMesa(id) {
+  const response = await fetch(`${API_URL}/mesas/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+
+  if (!response.ok) {
+    alert("No se pudo desactivar la mesa");
+    return;
+  }
+
+  await cargarMesas();
 }
 
 async function cargarCalendario() {
@@ -279,12 +347,16 @@ async function cargarCalendario() {
     return;
   }
 
-  const params = new URLSearchParams();
-  params.append("fecha", fecha);
+  const response = await fetch(`${API_URL}/reservas/?fecha=${fecha}`, {
+    headers: authHeaders(),
+  });
 
-  const response = await fetch(`${API_URL}/reservas/?${params.toString()}`);
+  if (!response.ok) {
+    alert("No se pudo cargar el calendario");
+    return;
+  }
+
   const reservas = await response.json();
-
   const contenedor = document.querySelector("#calendario");
 
   if (reservas.length === 0) {
@@ -292,35 +364,50 @@ async function cargarCalendario() {
     return;
   }
 
-  contenedor.innerHTML = reservas.map((reserva) => `
-    <div class="calendar-row estado-${reserva.estado}">
-      <div><strong>${reserva.hora}</strong></div>
-      <div>
-        ${reserva.cliente_nombre}<br />
-        <small>${reserva.personas} personas · Mesa ${reserva.mesa_id ?? "sin asignar"}</small>
+  contenedor.innerHTML = reservas
+    .map(
+      (reserva) => `
+      <div class="calendar-row estado-${reserva.estado}">
+        <div><strong>${reserva.hora}</strong></div>
+        <div>
+          ${reserva.cliente_nombre}<br />
+          <small>${reserva.personas} personas · Mesa ${reserva.mesa_id ?? "sin asignar"}</small>
+        </div>
+        <div>${reserva.estado}</div>
       </div>
-      <div>${reserva.estado}</div>
-    </div>
-  `).join("");
+    `
+    )
+    .join("");
 }
+
 async function cargarUsuarios() {
   const response = await fetch(`${API_URL}/usuarios/`, {
-  headers: authHeaders()
-});
+    headers: authHeaders(),
+  });
+
+  if (!response.ok) {
+    alert("No se pudieron cargar los usuarios");
+    return;
+  }
+
   const usuarios = await response.json();
 
-  document.querySelector("#usuarios").innerHTML = usuarios.map((u) => `
-  <div class="card">
-    <h3>${u.nombre}</h3>
-    <p><strong>Email:</strong> ${u.email}</p>
-    <p><strong>Rol:</strong> ${u.rol}</p>
-    <p><strong>Activo:</strong> ${u.activo ? "Sí" : "No"}</p>
+  document.querySelector("#usuarios").innerHTML = usuarios
+    .map(
+      (usuario) => `
+      <div class="card">
+        <h3>${usuario.nombre}</h3>
+        <p><strong>Email:</strong> ${usuario.email}</p>
+        <p><strong>Rol:</strong> ${usuario.rol}</p>
+        <p><strong>Activo:</strong> ${usuario.activo ? "Sí" : "No"}</p>
 
-    <button onclick="toggleUsuario(${u.id})">
-      ${u.activo ? "Desactivar" : "Activar"}
-    </button>
-  </div>
-`).join("");
+        <button onclick="toggleUsuario(${usuario.id})">
+          ${usuario.activo ? "Desactivar" : "Activar"}
+        </button>
+      </div>
+    `
+    )
+    .join("");
 }
 
 async function crearUsuario(e) {
@@ -347,11 +434,12 @@ async function crearUsuario(e) {
   e.target.reset();
   await cargarUsuarios();
 }
+
 async function toggleUsuario(id) {
   const response = await fetch(`${API_URL}/usuarios/${id}/toggle`, {
-  method: "PATCH",
-  headers: authHeaders(),
-});
+    method: "PATCH",
+    headers: authHeaders(),
+  });
 
   if (!response.ok) {
     alert("No se pudo cambiar el estado del usuario");
@@ -359,44 +447,6 @@ async function toggleUsuario(id) {
   }
 
   await cargarUsuarios();
-}
-async function crearMesa(e) {
-  e.preventDefault();
-
-  const mesa = {
-    nombre: document.querySelector("#mesaNombre").value,
-    capacidad: Number(document.querySelector("#mesaCapacidad").value),
-    zona: document.querySelector("#mesaZona").value,
-  };
-
-  const response = await fetch(`${API_URL}/mesas/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(mesa),
-  });
-
-  if (!response.ok) {
-    alert("No se pudo crear la mesa");
-    return;
-  }
-
-  e.target.reset();
-  await cargarMesas();
-}
-async function desactivarMesa(id) {
-  const response = await fetch(`${API_URL}/mesas/${id}`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    alert("No se pudo desactivar la mesa");
-    return;
-  }
-
-  await cargarMesas();
-}
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js");
 }
 
 window.desactivarMesa = desactivarMesa;
