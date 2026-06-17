@@ -1,1 +1,240 @@
-body{font-family:Arial,sans-serif;margin:0;background:#f5efe6;color:#333}header{min-height:80vh;background:#1c4b34;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px}h1{font-size:3rem}.btn,button{background:#d4a017;color:white;border:none;border-radius:8px;padding:14px 24px;text-decoration:none;cursor:pointer}section{max-width:800px;margin:40px auto;background:white;padding:24px;border-radius:14px}form{display:grid;gap:12px}input,textarea{padding:14px;border:1px solid #ddd;border-radius:8px}footer{text-align:center;background:#111;color:white;padding:20px}
+:root {
+  --brand: #12432d;
+  --brand-dark: #09261b;
+  --accent: #c69a45;
+  --paper: #f8f3e9;
+  --surface: #ffffff;
+  --text: #201f1a;
+  --muted: #69635a;
+  --border: #e0d7c7;
+  font-family: Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--text);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.site-header {
+  position: fixed;
+  z-index: 10;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 16px clamp(18px, 4vw, 56px);
+  color: white;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+}
+
+nav {
+  display: flex;
+  gap: 18px;
+  font-weight: 700;
+}
+
+.hero {
+  min-height: 92vh;
+  display: grid;
+  align-items: end;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 120px clamp(18px, 5vw, 72px) 56px;
+  color: white;
+  background:
+    linear-gradient(180deg, rgba(5, 18, 13, 0.35), rgba(5, 18, 13, 0.82)),
+    url("imagenes/fototonel.jpg") center / cover;
+}
+
+.hero-content {
+  width: min(760px, 100%);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: clamp(2.7rem, 7vw, 6rem);
+}
+
+.hero-content p:last-child {
+  width: min(600px, 100%);
+  margin-bottom: 28px;
+  font-size: 1.15rem;
+}
+
+.booking-form {
+  width: min(900px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 18px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+input {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+button,
+.outline-link {
+  min-height: 46px;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 18px;
+  color: white;
+  background: var(--brand);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.booking-form button,
+.form-message {
+  grid-column: 1 / -1;
+}
+
+.form-message {
+  min-height: 22px;
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.form-message.success {
+  color: var(--brand);
+}
+
+.form-message.error {
+  color: #9a2424;
+}
+
+.info-grid,
+.feature-band {
+  width: min(1180px, calc(100% - 36px));
+  margin: 28px auto;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.info-grid article,
+.feature-band {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 22px;
+}
+
+.info-grid h2,
+.feature-band h2 {
+  margin: 0 0 8px;
+  color: var(--brand);
+}
+
+.info-grid p {
+  margin: 0 0 6px;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.info-grid span,
+.feature-band p {
+  color: var(--muted);
+}
+
+.feature-band {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.feature-band p {
+  margin-bottom: 14px;
+}
+
+.outline-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px clamp(18px, 4vw, 56px);
+  color: white;
+  background: var(--brand-dark);
+}
+
+@media (max-width: 760px) {
+  .site-header,
+  footer,
+  .feature-band {
+    display: grid;
+  }
+
+  nav {
+    flex-wrap: wrap;
+  }
+
+  .booking-form,
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+}

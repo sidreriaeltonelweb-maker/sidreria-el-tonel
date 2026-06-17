@@ -1,1 +1,152 @@
-<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sidrería El Tonel</title><link rel="stylesheet" href="estilos.css"></head><body><header><h1>Sidrería El Tonel</h1><p>Soto de Cangas · Cocina asturiana</p><a href="#reservas" class="btn">Reservar mesa</a></header><section><h2>Horario</h2><p>Abierto de 11:30 a 23:00. Cerrado los miércoles.</p></section><section id="reservas"><h2>Reserva tu mesa</h2><form id="formReservaPublica"><input id="nombre" placeholder="Nombre" required><input id="telefono" placeholder="Teléfono" required><input id="personas" type="number" placeholder="Personas" required><input id="fecha" type="date" required><input id="hora" type="time" required><textarea id="observaciones" placeholder="Observaciones"></textarea><button type="submit">Enviar reserva</button></form><p id="mensajeReserva"></p></section><footer>📍 Soto de Cangas · 📞 684 569 175</footer><script>const API_URL='https://sidreria-el-tonel.onrender.com';document.querySelector('#formReservaPublica').addEventListener('submit',async(e)=>{e.preventDefault();const fecha=document.querySelector('#fecha').value;const hora=document.querySelector('#hora').value;const dia=new Date(fecha+'T12:00:00').getDay();const msg=document.querySelector('#mensajeReserva');if(dia===3){msg.textContent='Los miércoles estamos cerrados.';return;}if(hora<'11:30'||hora>'23:00'){msg.textContent='El horario de reservas es de 11:30 a 23:00.';return;}const reserva={cliente_nombre:document.querySelector('#nombre').value,cliente_telefono:document.querySelector('#telefono').value,personas:Number(document.querySelector('#personas').value),fecha,hora,observaciones:document.querySelector('#observaciones').value};const response=await fetch(`${API_URL}/reservas/`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(reserva)});if(!response.ok){msg.textContent='No se pudo enviar la reserva.';return;}e.target.reset();msg.textContent='Reserva enviada. El restaurante la confirmará desde la app.';});</script></body></html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sidrería El Tonel | Reservas</title>
+  <link rel="stylesheet" href="estilos.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#inicio" aria-label="Sidrería El Tonel">
+      <span class="brand-mark">ET</span>
+      <span>Sidrería<br />El Tonel</span>
+    </a>
+    <nav>
+      <a href="#reservas">Reservas</a>
+      <a href="carta.html">Carta</a>
+      <a href="#contacto">Contacto</a>
+    </nav>
+  </header>
+
+  <main id="inicio">
+    <section class="hero">
+      <div class="hero-content">
+        <p class="eyebrow">Soto de Cangas</p>
+        <h1>Reserva tu mesa</h1>
+        <p>Sidrería asturiana, cocina de casa y reservas confirmadas desde nuestro panel interno.</p>
+      </div>
+
+      <form id="reservas" class="booking-form">
+        <div>
+          <label for="fecha">Fecha</label>
+          <input id="fecha" type="date" required />
+        </div>
+        <div>
+          <label for="hora">Hora</label>
+          <input id="hora" type="time" min="11:30" max="23:00" required />
+        </div>
+        <div>
+          <label for="personas">Personas</label>
+          <input id="personas" type="number" min="1" value="2" required />
+        </div>
+        <div>
+          <label for="nombre">Nombre</label>
+          <input id="nombre" placeholder="Nombre y apellidos" required />
+        </div>
+        <div>
+          <label for="telefono">Teléfono</label>
+          <input id="telefono" inputmode="tel" placeholder="684 569 175" required />
+        </div>
+        <div>
+          <label for="observaciones">Observaciones</label>
+          <input id="observaciones" placeholder="Trona, ventana, alergias..." />
+        </div>
+        <button type="submit">Solicitar reserva</button>
+        <p id="mensajeReserva" class="form-message"></p>
+      </form>
+    </section>
+
+    <section class="info-grid" id="contacto">
+      <article>
+        <h2>Horario</h2>
+        <p>11:30 - 23:00</p>
+        <span>Cerrado los miércoles</span>
+      </article>
+      <article>
+        <h2>Teléfono</h2>
+        <p>684 569 175</p>
+        <span>Confirmación gestionada desde la app</span>
+      </article>
+      <article>
+        <h2>Ubicación</h2>
+        <p>Soto de Cangas</p>
+        <span>Cocina asturiana y sidra</span>
+      </article>
+    </section>
+
+    <section class="feature-band">
+      <h2>Reservas rápidas, sala organizada</h2>
+      <div>
+        <p>El equipo recibe cada solicitud en el panel y puede asignar mesa, confirmar o cancelar sin depender del correo.</p>
+        <a class="outline-link" href="#reservas">Reservar ahora</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Sidrería El Tonel</span>
+    <span>Soto de Cangas · 684 569 175</span>
+  </footer>
+
+  <script>
+    const API_URL =
+      ["localhost", "127.0.0.1"].includes(window.location.hostname)
+        ? "http://127.0.0.1:8000"
+        : "https://sidreria-el-tonel.onrender.com";
+
+    const form = document.querySelector("#reservas");
+    const msg = document.querySelector("#mensajeReserva");
+    document.querySelector("#fecha").value = new Date().toISOString().slice(0, 10);
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      msg.className = "form-message";
+      msg.textContent = "Enviando reserva...";
+
+      const fecha = document.querySelector("#fecha").value;
+      const hora = document.querySelector("#hora").value;
+      const dia = new Date(`${fecha}T12:00:00`).getDay();
+
+      if (dia === 3) {
+        msg.className = "form-message error";
+        msg.textContent = "Los miércoles estamos cerrados.";
+        return;
+      }
+
+      if (hora < "11:30" || hora > "23:00") {
+        msg.className = "form-message error";
+        msg.textContent = "El horario de reservas es de 11:30 a 23:00.";
+        return;
+      }
+
+      const reserva = {
+        cliente_nombre: document.querySelector("#nombre").value,
+        cliente_telefono: document.querySelector("#telefono").value,
+        personas: Number(document.querySelector("#personas").value),
+        fecha,
+        hora,
+        observaciones: document.querySelector("#observaciones").value,
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/reservas/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(reserva),
+        });
+
+        if (!response.ok) throw new Error();
+
+        form.reset();
+        document.querySelector("#fecha").value = new Date().toISOString().slice(0, 10);
+        msg.className = "form-message success";
+        msg.textContent = "Reserva enviada. El restaurante la confirmará desde la app.";
+      } catch {
+        msg.className = "form-message error";
+        msg.textContent = "No se pudo enviar la reserva. Inténtalo de nuevo o llama al restaurante.";
+      }
+    });
+  </script>
+</body>
+</html>

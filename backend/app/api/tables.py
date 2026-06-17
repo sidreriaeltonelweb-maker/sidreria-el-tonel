@@ -16,6 +16,8 @@ def listar_mesas(db: Session = Depends(get_db), current_user: User = Depends(get
 
 @router.post("/")
 def crear_mesa(data: TableCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    if db.query(Table).filter(Table.nombre == data.nombre).first():
+        raise HTTPException(status_code=400, detail="Ya existe una mesa con ese nombre")
     mesa = Table(nombre=data.nombre, capacidad=data.capacidad, zona=data.zona, activa=True)
     db.add(mesa)
     db.commit()

@@ -1,3 +1,4 @@
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, require_encargado_or_admin
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/reservas", tags=["Reservas"])
 
 
 @router.get("/")
-def listar_reservas(fecha: str | None = None, estado: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def listar_reservas(fecha: date | None = None, estado: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     query = db.query(Reservation)
     if fecha:
         query = query.filter(Reservation.fecha == fecha)
@@ -54,6 +55,17 @@ def asignar_mesa(reserva_id: int, data: ReservationAssignTable, db: Session = De
     mesa = db.query(Table).filter(Table.id == data.mesa_id, Table.activa == True).first()
     if not mesa:
         raise HTTPException(status_code=404, detail="Mesa no encontrada o inactiva")
+    if mesa.capacidad < reserva.personas:
+        raise HTTPException(status_code=400, detail="La mesa no tiene capacidad suficiente")
+    ocupada = db.query(Reservation).filter(
+        Reservation.id != reserva.id,
+        Reservation.mesa_id == mesa.id,
+        Reservation.fecha == reserva.fecha,
+        Reservation.hora == reserva.hora,
+        Reservation.estado.in_(["pendiente", "confirmada"]),
+    ).first()
+    if ocupada:
+        raise HTTPException(status_code=400, detail="La mesa ya está ocupada para esa fecha y hora")
     reserva.mesa_id = mesa.id
     db.commit()
     db.refresh(reserva)

@@ -1,7 +1,10 @@
 from app.core.security import hash_password
+from app.db.init_db import init_db
 from app.db.database import SessionLocal
 from app.models.table import Table
 from app.models.user import User
+
+init_db()
 
 db = SessionLocal()
 admin_email = "admin@sidreriaeltonel.local"

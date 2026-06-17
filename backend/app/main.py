@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
@@ -6,8 +7,16 @@ from app.api.reservations import router as reservations_router
 from app.api.tables import router as tables_router
 from app.api.users import router as users_router
 from app.core.config import settings
+from app.db.init_db import init_db
 
-app = FastAPI(title=settings.PROJECT_NAME, version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title=settings.PROJECT_NAME, version="1.0.0", lifespan=lifespan)
 origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
 app.add_middleware(

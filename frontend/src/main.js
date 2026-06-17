@@ -1,469 +1,839 @@
-const API_URL = "https://sidreria-el-tonel.onrender.com";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (["localhost", "127.0.0.1"].includes(window.location.hostname)
+    ? "http://127.0.0.1:8000"
+    : "https://sidreria-el-tonel.onrender.com");
 
-let usuarioActual = null;
-let token = null;
+const state = {
+  user: JSON.parse(localStorage.getItem("user") || "null"),
+  token: localStorage.getItem("token"),
+  activeTab: "dashboard",
+  reservas: [],
+  mesas: [],
+  usuarios: [],
+  stats: null,
+  selectedReservaId: null,
+  filters: {
+    fecha: new Date().toISOString().slice(0, 10),
+    estado: "",
+  },
+};
+
+const app = document.querySelector("#app");
+let deferredInstallPrompt = null;
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  renderInstallButton();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  renderInstallButton();
+});
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function puedeGestionarReservas() {
+  return state.user?.rol === "admin" || state.user?.rol === "encargado";
+}
+
+function puedeAdministrar() {
+  return state.user?.rol === "admin";
+}
+
+function formatHora(value = "") {
+  return String(value).slice(0, 5);
+}
+
+function getSelectedReserva() {
+  return state.reservas.find((reserva) => reserva.id === state.selectedReservaId) || null;
+}
 
 function authHeaders() {
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${state.token}`,
   };
 }
 
-document.querySelector("#app").innerHTML = `
-  <div class="container">
-    <h1>Sidrería El Tonel</h1>
-    <h2>Acceso empleados</h2>
-
-    <form id="formLogin" class="form">
-      <input id="loginEmail" placeholder="Email" required />
-      <input id="loginPassword" type="password" placeholder="Contraseña" required />
-      <button type="submit">Entrar</button>
-    </form>
-
-    <div id="panel"></div>
-  </div>
-`;
-
-document.querySelector("#formLogin").addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const response = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: document.querySelector("#loginEmail").value,
-      password: document.querySelector("#loginPassword").value,
-    }),
+async function api(path, options = {}) {
+  const headers = options.auth === false ? { "Content-Type": "application/json" } : authHeaders();
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options.headers || {}),
+    },
   });
 
-  if (!response.ok) {
-    alert("Usuario o contraseña incorrectos");
-    return;
+  if (response.status === 401) {
+    if (options.auth !== false) cerrarSesion(false);
   }
 
-  const data = await response.json();
-  usuarioActual = data.user;
-  token = data.access_token;
+  const contentType = response.headers.get("content-type") || "";
+  const data = contentType.includes("application/json") ? await response.json() : null;
 
-  document.querySelector("#formLogin").style.display = "none";
-  renderPanel();
-});
+  if (!response.ok) {
+    const detail = Array.isArray(data?.detail)
+      ? data.detail.map((item) => item.msg).join(". ")
+      : data?.detail;
+    throw new Error(detail || "No se pudo completar la operación");
+  }
 
-function renderPanel() {
-  document.querySelector("#panel").innerHTML = `
-    <p><strong>Usuario:</strong> ${usuarioActual.nombre}</p>
-    <p><strong>Rol:</strong> ${usuarioActual.rol}</p>
+  return data;
+}
 
-    ${
-      usuarioActual.rol !== "empleado"
-        ? `
-      <h2>Nueva reserva</h2>
-      <form id="formReserva" class="form">
+function setMessage(text = "", type = "info") {
+  const message = document.querySelector("#message");
+  if (!message) return;
+  message.className = `message ${type}`;
+  message.textContent = text;
+}
+
+function renderInstallButton() {
+  const target = document.querySelector("#installAppBtn");
+  if (!target) return;
+  target.hidden = !deferredInstallPrompt;
+}
+
+function renderLogin() {
+  app.innerHTML = `
+    <main class="auth-shell">
+      <section class="auth-panel">
+        <p class="eyebrow">Panel interno</p>
+        <h1>Sidrería El Tonel</h1>
+        <form id="formLogin" class="form">
+          <label>
+            Email
+            <input id="loginEmail" type="email" autocomplete="username" required />
+          </label>
+          <label>
+            Contraseña
+            <input id="loginPassword" type="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Entrar</button>
+        </form>
+        <p id="message" class="message"></p>
+      </section>
+    </main>
+  `;
+
+  document.querySelector("#formLogin").addEventListener("submit", login);
+}
+
+function renderApp() {
+  app.innerHTML = `
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div>
+          <p class="eyebrow">Sidrería El Tonel</p>
+          <h1>Reservas</h1>
+        </div>
+        <nav class="nav-tabs">
+          <button class="${state.activeTab === "dashboard" ? "active" : ""}" data-tab="dashboard">Dashboard</button>
+          <button class="${state.activeTab === "reservas" ? "active" : ""}" data-tab="reservas">Reservas</button>
+          <button class="${state.activeTab === "calendario" ? "active" : ""}" data-tab="calendario">Calendario</button>
+          <button class="${state.activeTab === "mesas" ? "active" : ""}" data-tab="mesas">Mesas</button>
+          ${puedeAdministrar() ? `<button class="${state.activeTab === "usuarios" ? "active" : ""}" data-tab="usuarios">Usuarios</button>` : ""}
+        </nav>
+        <div class="user-box">
+          <strong>${escapeHtml(state.user.nombre)}</strong>
+          <span>${escapeHtml(state.user.rol)}</span>
+          <button id="installAppBtn" class="secondary" ${deferredInstallPrompt ? "" : "hidden"}>Instalar app</button>
+          <small class="install-help">iPhone: Compartir > Añadir a pantalla de inicio</small>
+          <button id="logoutBtn" class="secondary">Salir</button>
+        </div>
+      </aside>
+      <main class="workspace">
+        <div id="message" class="message"></div>
+        ${renderTab()}
+        ${renderReservaDetalle()}
+      </main>
+    </div>
+  `;
+
+  document.querySelectorAll("[data-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeTab = button.dataset.tab;
+      renderApp();
+      cargarDatosVista();
+    });
+  });
+
+  document.querySelector("#logoutBtn").addEventListener("click", () => cerrarSesion());
+  document.querySelector("#installAppBtn")?.addEventListener("click", instalarApp);
+  conectarEventosVista();
+}
+
+async function instalarApp() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  renderInstallButton();
+}
+
+function renderTab() {
+  if (state.activeTab === "dashboard") return renderDashboard();
+  if (state.activeTab === "calendario") return renderCalendario();
+  if (state.activeTab === "mesas") return renderMesas();
+  if (state.activeTab === "usuarios" && puedeAdministrar()) return renderUsuarios();
+  return renderReservas();
+}
+
+function renderDashboard() {
+  const stats = state.stats || {
+    reservas_hoy: 0,
+    pendientes_hoy: 0,
+    confirmadas_hoy: 0,
+    canceladas_hoy: 0,
+    reservas_semana: 0,
+    canceladas_semana: 0,
+    ocupacion_hoy: 0,
+    proximas_reservas: [],
+  };
+
+  return `
+    <section class="toolbar">
+      <div>
+        <p class="eyebrow">Vista general</p>
+        <h2>Dashboard</h2>
+      </div>
+      <button id="cargarDashboard">Actualizar</button>
+    </section>
+
+    <section class="dashboard-grid">
+      ${renderStatCard("Pendientes", stats.pendientes_hoy, "warm")}
+      ${renderStatCard("Confirmadas", stats.confirmadas_hoy, "good")}
+      ${renderStatCard("Hoy", stats.reservas_hoy, "cool")}
+      ${renderStatCard("Canceladas", stats.canceladas_hoy, "bad")}
+    </section>
+
+    <section class="dashboard-layout">
+      <article class="panel">
+        <div class="section-title">
+          <h3>Próximas reservas</h3>
+          <span>${stats.proximas_reservas.length} activas</span>
+        </div>
+        <div class="list compact-list">
+          ${
+            stats.proximas_reservas.length
+              ? stats.proximas_reservas.map(renderReservaCompacta).join("")
+              : `<p class="empty">No hay próximas reservas pendientes o confirmadas.</p>`
+          }
+        </div>
+      </article>
+
+      <article class="panel stats-panel">
+        <div class="section-title">
+          <h3>Estadísticas</h3>
+        </div>
+        <div class="stats-stack">
+          ${renderProgress("Ocupación hoy", stats.ocupacion_hoy, "%")}
+          ${renderProgress("Reservas semana", stats.reservas_semana, "")}
+          ${renderProgress("Canceladas semana", stats.canceladas_semana, "")}
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderStatCard(label, value, tone) {
+  return `
+    <article class="stat-card ${tone}">
+      <span>${label}</span>
+      <strong>${value}</strong>
+      <div class="sparkline" aria-hidden="true"></div>
+    </article>
+  `;
+}
+
+function renderReservaCompacta(reserva) {
+  return `
+    <article class="compact-row">
+      <strong>${escapeHtml(formatHora(reserva.hora))} · ${escapeHtml(reserva.cliente_nombre)}</strong>
+      <span>${reserva.personas} personas · ${escapeHtml(reserva.fecha)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</span>
+      <em class="status ${escapeHtml(reserva.estado)}">${escapeHtml(reserva.estado)}</em>
+    </article>
+  `;
+}
+
+function renderProgress(label, value, suffix) {
+  const percent = suffix === "%" ? Math.min(Number(value), 100) : Math.min(Number(value) * 4, 100);
+  return `
+    <div class="progress-row">
+      <div>
+        <span>${label}</span>
+        <strong>${value}${suffix}</strong>
+      </div>
+      <div class="progress-track">
+        <div style="width: ${percent}%"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderReservas() {
+  return `
+    <section class="toolbar">
+      <div>
+        <p class="eyebrow">Operativa diaria</p>
+        <h2>Reservas</h2>
+      </div>
+      <div class="filters">
+        <input id="filtroFecha" type="date" value="${state.filters.fecha}" />
+        <select id="filtroEstado">
+          <option value="">Todos</option>
+          <option value="pendiente" ${state.filters.estado === "pendiente" ? "selected" : ""}>Pendientes</option>
+          <option value="confirmada" ${state.filters.estado === "confirmada" ? "selected" : ""}>Confirmadas</option>
+          <option value="cancelada" ${state.filters.estado === "cancelada" ? "selected" : ""}>Canceladas</option>
+        </select>
+        <button id="cargarReservas">Actualizar</button>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      ${renderMetric("Pendientes", state.reservas.filter((item) => item.estado === "pendiente").length)}
+      ${renderMetric("Confirmadas", state.reservas.filter((item) => item.estado === "confirmada").length)}
+      ${renderMetric("Comensales", state.reservas.reduce((total, item) => item.estado !== "cancelada" ? total + item.personas : total, 0))}
+    </section>
+
+    ${puedeGestionarReservas() ? renderReservaForm() : ""}
+
+    <section class="panel">
+      <div class="section-title">
+        <h3>Listado</h3>
+        <span>${state.reservas.length} reservas</span>
+      </div>
+      <div id="reservas" class="list">
+        ${state.reservas.length ? state.reservas.map(renderReservaCard).join("") : `<p class="empty">No hay reservas para los filtros seleccionados.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCalendario() {
+  const horas = [
+    "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00",
+    "15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00",
+    "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00",
+  ];
+
+  return `
+    <section class="toolbar">
+      <div>
+        <p class="eyebrow">Agenda</p>
+        <h2>Calendario diario</h2>
+      </div>
+      <div class="filters">
+        <input id="filtroFecha" type="date" value="${state.filters.fecha}" />
+        <button id="cargarCalendario">Actualizar</button>
+      </div>
+    </section>
+
+    <section class="calendar-board">
+      ${horas.map((hora) => renderCalendarSlot(hora)).join("")}
+    </section>
+  `;
+}
+
+function renderCalendarSlot(hora) {
+  const reservasHora = state.reservas.filter((reserva) => formatHora(reserva.hora) === hora);
+  return `
+    <article class="calendar-slot ${reservasHora.length ? "has-items" : ""}">
+      <time>${hora}</time>
+      <div>
+        ${
+          reservasHora.length
+            ? reservasHora.map((reserva) => `
+              <button class="calendar-item estado-${escapeHtml(reserva.estado)}" data-action="detalle" data-id="${reserva.id}">
+                <strong>${escapeHtml(reserva.cliente_nombre)}</strong>
+                <span>${reserva.personas} personas · Mesa ${reserva.mesa_id ?? "sin asignar"}</span>
+              </button>
+            `).join("")
+            : `<span class="calendar-empty">Libre</span>`
+        }
+      </div>
+    </article>
+  `;
+}
+
+function renderMetric(label, value) {
+  return `
+    <article class="metric">
+      <span>${label}</span>
+      <strong>${value}</strong>
+    </article>
+  `;
+}
+
+function renderReservaForm() {
+  return `
+    <section class="panel">
+      <div class="section-title">
+        <h3>Nueva reserva</h3>
+      </div>
+      <form id="formReserva" class="form inline-form">
         <input id="nombre" placeholder="Nombre del cliente" required />
         <input id="telefono" placeholder="Teléfono" required />
-        <input id="personas" type="number" placeholder="Personas" required />
-        <input id="fecha" type="date" required />
-        <input id="hora" type="time" required />
+        <input id="personas" type="number" min="1" placeholder="Personas" required />
+        <input id="fecha" type="date" value="${state.filters.fecha}" required />
+        <input id="hora" type="time" min="11:30" max="23:00" required />
         <input id="observaciones" placeholder="Observaciones" />
-        <button type="submit">Crear reserva</button>
+        <button type="submit">Crear</button>
       </form>
+    </section>
+  `;
+}
+
+function renderReservaCard(reserva) {
+  const mesasDisponibles = state.mesas.filter((mesa) => mesa.activa && mesa.capacidad >= reserva.personas);
+  return `
+    <article class="row-card estado-${escapeHtml(reserva.estado)}">
+      <div>
+        <h3>${escapeHtml(reserva.cliente_nombre)}</h3>
+        <p>${escapeHtml(reserva.cliente_telefono)} · ${reserva.personas} personas</p>
+        <p>${escapeHtml(reserva.fecha)} · ${escapeHtml(formatHora(reserva.hora))} · Mesa ${reserva.mesa_id ?? "sin asignar"}</p>
+        ${reserva.observaciones ? `<p class="note">${escapeHtml(reserva.observaciones)}</p>` : ""}
+      </div>
+      <span class="status ${escapeHtml(reserva.estado)}">${escapeHtml(reserva.estado)}</span>
+      ${
+        puedeGestionarReservas()
+          ? `
+        <div class="actions">
+          <select data-mesa-reserva="${reserva.id}">
+            <option value="">Asignar mesa</option>
+            ${mesasDisponibles.map((mesa) => `<option value="${mesa.id}" ${mesa.id === reserva.mesa_id ? "selected" : ""}>${escapeHtml(mesa.nombre)} (${mesa.capacidad})</option>`).join("")}
+          </select>
+          <button data-action="asignar" data-id="${reserva.id}" class="secondary">Asignar</button>
+          <button data-action="detalle" data-id="${reserva.id}" class="secondary">Ver detalle</button>
+          <button data-action="confirmar" data-id="${reserva.id}">Confirmar</button>
+          <button data-action="cancelar" data-id="${reserva.id}" class="danger">Cancelar</button>
+        </div>
+      `
+          : ""
+      }
+    </article>
+  `;
+}
+
+function renderReservaDetalle() {
+  const reserva = getSelectedReserva();
+  if (!reserva) return "";
+
+  const mesasDisponibles = state.mesas.filter((mesa) => mesa.activa && mesa.capacidad >= reserva.personas);
+  return `
+    <div class="modal-backdrop" role="presentation">
+      <section class="reservation-detail" role="dialog" aria-modal="true" aria-labelledby="detalleReservaTitulo">
+        <header>
+          <button data-action="cerrar-detalle" class="icon-button" aria-label="Cerrar">×</button>
+          <div>
+            <p class="eyebrow">Reserva #${reserva.id}</p>
+            <h2 id="detalleReservaTitulo">${escapeHtml(reserva.cliente_nombre)}</h2>
+          </div>
+          <span class="status ${escapeHtml(reserva.estado)}">${escapeHtml(reserva.estado)}</span>
+        </header>
+
+        <div class="detail-grid">
+          ${renderDetailItem("Teléfono", reserva.cliente_telefono)}
+          ${renderDetailItem("Fecha", reserva.fecha)}
+          ${renderDetailItem("Hora", formatHora(reserva.hora))}
+          ${renderDetailItem("Personas", reserva.personas)}
+          ${renderDetailItem("Mesa asignada", reserva.mesa_id ?? "Sin asignar")}
+          ${renderDetailItem("Observaciones", reserva.observaciones || "Sin observaciones")}
+        </div>
+
+        ${
+          puedeGestionarReservas()
+            ? `
+          <div class="detail-actions">
+            <select data-mesa-reserva="${reserva.id}">
+              <option value="">Asignar mesa</option>
+              ${mesasDisponibles.map((mesa) => `<option value="${mesa.id}" ${mesa.id === reserva.mesa_id ? "selected" : ""}>${escapeHtml(mesa.nombre)} (${mesa.capacidad})</option>`).join("")}
+            </select>
+            <button data-action="asignar" data-id="${reserva.id}" class="secondary">Asignar mesa</button>
+            <button data-action="confirmar" data-id="${reserva.id}">Confirmar</button>
+            <button data-action="cancelar" data-id="${reserva.id}" class="danger">Cancelar</button>
+          </div>
+        `
+            : ""
+        }
+      </section>
+    </div>
+  `;
+}
+
+function renderDetailItem(label, value) {
+  return `
+    <div class="detail-item">
+      <span>${label}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
+function renderMesas() {
+  return `
+    <section class="toolbar">
+      <div>
+        <p class="eyebrow">Sala</p>
+        <h2>Plano de mesas</h2>
+      </div>
+      <div class="filters">
+        <input id="filtroFecha" type="date" value="${state.filters.fecha}" />
+        <button id="cargarMesas">Actualizar</button>
+      </div>
+    </section>
+
+    <div class="leyenda">
+      <span class="leyenda-item libre">Libre</span>
+      <span class="leyenda-item pendiente">Pendiente</span>
+      <span class="leyenda-item confirmada">Confirmada</span>
+      <span class="leyenda-item inactiva">Inactiva</span>
+    </div>
+
+    <section class="mesas-grid floor-plan">
+      ${state.mesas.length ? state.mesas.map(renderMesaCard).join("") : `<p class="empty">No hay mesas cargadas.</p>`}
+    </section>
+
+    ${
+      puedeAdministrar()
+        ? `
+      <section class="panel">
+        <div class="section-title">
+          <h3>Crear mesa</h3>
+        </div>
+        <form id="formMesa" class="form inline-form">
+          <input id="mesaNombre" placeholder="Nombre de la mesa" required />
+          <input id="mesaCapacidad" type="number" min="1" placeholder="Capacidad" required />
+          <input id="mesaZona" placeholder="Zona" value="principal" required />
+          <button type="submit">Crear</button>
+        </form>
+      </section>
     `
         : ""
     }
+  `;
+}
 
-    <h2>Panel de reservas</h2>
+function renderMesaCard(mesa) {
+  return `
+    <article class="mesa-card mesa-${escapeHtml(mesa.estado)}">
+      <h3>${escapeHtml(mesa.nombre)}</h3>
+      <p>${mesa.capacidad} personas</p>
+      <strong>${escapeHtml(mesa.estado)}</strong>
+      ${puedeAdministrar() ? `<button data-action="toggle-mesa" data-id="${mesa.id}" data-activa="${mesa.activa}" class="${mesa.activa ? "danger" : "secondary"}">${mesa.activa ? "Desactivar" : "Activar"}</button>` : ""}
+    </article>
+  `;
+}
 
-    <div class="filters">
-      <input id="filtroFecha" type="date" />
-      <select id="filtroEstado">
-        <option value="">Todos</option>
-        <option value="pendiente">Pendientes</option>
-        <option value="confirmada">Confirmadas</option>
-        <option value="cancelada">Canceladas</option>
-      </select>
-      <button id="cargarReservas">Cargar reservas</button>
-    </div>
+function renderUsuarios() {
+  return `
+    <section class="toolbar">
+      <div>
+        <p class="eyebrow">Equipo</p>
+        <h2>Usuarios</h2>
+      </div>
+      <button id="cargarUsuarios">Actualizar</button>
+    </section>
 
-    <div id="reservas"></div>
-
-    <h2>Plano de mesas</h2>
-
-  <div class="leyenda">
-    <span>🟢 Libre</span>
-    <span>🟡 Pendiente</span>
-    <span>🔴 Confirmada</span>
-    <span>⚫ Inactiva</span>
-  </div>
-
-  <button id="cargarMesas">
-    Actualizar plano
-  </button>
-
-  <div id="mesas" class="mesas-grid"></div>
-
-<button id="cargarMesas">Cargar mesas</button>
-<div id="mesas" class="mesas-grid"></div>
-
-    ${
-      usuarioActual.rol === "admin"
-        ? `
-      <h2>Gestión de mesas</h2>
-      <form id="formMesa" class="form">
-        <input id="mesaNombre" placeholder="Nombre de la mesa" required />
-        <input id="mesaCapacidad" type="number" placeholder="Capacidad" required />
-        <input id="mesaZona" placeholder="Zona" value="principal" />
-        <button type="submit">Crear mesa</button>
-      </form>
-
-      <h2>Gestión de usuarios</h2>
-      <form id="formUsuario" class="form">
+    <section class="panel">
+      <div class="section-title">
+        <h3>Crear usuario</h3>
+      </div>
+      <form id="formUsuario" class="form inline-form">
         <input id="usuarioNombre" placeholder="Nombre" required />
-        <input id="usuarioEmail" placeholder="Email" required />
-        <input id="usuarioPassword" type="password" placeholder="Contraseña" required />
+        <input id="usuarioEmail" type="email" placeholder="Email" required />
+        <input id="usuarioPassword" type="password" minlength="6" placeholder="Contraseña" required />
         <select id="usuarioRol">
           <option value="empleado">Empleado</option>
           <option value="encargado">Encargado</option>
           <option value="admin">Administrador</option>
         </select>
-        <button type="submit">Crear usuario</button>
+        <button type="submit">Crear</button>
       </form>
+    </section>
 
-      <button id="cargarUsuarios">Cargar usuarios</button>
-      <div id="usuarios"></div>
-    `
-        : ""
+    <section class="list">
+      ${state.usuarios.length ? state.usuarios.map(renderUsuarioCard).join("") : `<p class="empty">No hay usuarios cargados.</p>`}
+    </section>
+  `;
+}
+
+function renderUsuarioCard(usuario) {
+  return `
+    <article class="row-card">
+      <div>
+        <h3>${escapeHtml(usuario.nombre)}</h3>
+        <p>${escapeHtml(usuario.email)} · ${escapeHtml(usuario.rol)}</p>
+      </div>
+      <span class="status ${usuario.activo ? "confirmada" : "cancelada"}">${usuario.activo ? "Activo" : "Inactivo"}</span>
+      <button data-action="toggle-usuario" data-id="${usuario.id}" class="secondary" ${usuario.id === state.user.id ? "disabled" : ""}>
+        ${usuario.activo ? "Desactivar" : "Activar"}
+      </button>
+    </article>
+  `;
+}
+
+function conectarEventosVista() {
+  document.querySelector("#cargarReservas")?.addEventListener("click", cargarReservasDesdeFiltros);
+  document.querySelector("#cargarMesas")?.addEventListener("click", cargarMesasDesdeFiltros);
+  document.querySelector("#cargarUsuarios")?.addEventListener("click", cargarUsuarios);
+  document.querySelector("#cargarDashboard")?.addEventListener("click", cargarDashboard);
+  document.querySelector("#cargarCalendario")?.addEventListener("click", cargarCalendarioDesdeFiltros);
+  document.querySelector("#formReserva")?.addEventListener("submit", crearReserva);
+  document.querySelector("#formMesa")?.addEventListener("submit", crearMesa);
+  document.querySelector("#formUsuario")?.addEventListener("submit", crearUsuario);
+
+  document.querySelector("#filtroFecha")?.addEventListener("change", (event) => {
+    state.filters.fecha = event.target.value;
+  });
+  document.querySelector("#filtroEstado")?.addEventListener("change", (event) => {
+    state.filters.estado = event.target.value;
+  });
+
+  document.querySelectorAll("[data-action]").forEach((button) => {
+    button.addEventListener("click", manejarAccion);
+  });
+}
+
+async function login(event) {
+  event.preventDefault();
+  setMessage("Entrando...");
+
+  try {
+    const data = await api("/auth/login", {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify({
+        email: document.querySelector("#loginEmail").value,
+        password: document.querySelector("#loginPassword").value,
+      }),
+    });
+
+    state.user = data.user;
+    state.token = data.access_token;
+    localStorage.setItem("user", JSON.stringify(state.user));
+    localStorage.setItem("token", state.token);
+    renderApp();
+    await cargarDatosVista();
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
+}
+
+function cerrarSesion(render = true) {
+  state.user = null;
+  state.token = null;
+  localStorage.removeItem("user");
+  localStorage.removeItem("token");
+  if (render) renderLogin();
+}
+
+async function cargarDatosVista() {
+  try {
+    if (state.activeTab === "reservas") {
+      await Promise.all([cargarMesas(false), cargarReservas(false)]);
+    } else if (state.activeTab === "calendario") {
+      await Promise.all([cargarMesas(false), cargarReservas(false)]);
+    } else if (state.activeTab === "dashboard") {
+      await cargarDashboard(false);
+    } else if (state.activeTab === "mesas") {
+      await cargarMesas(false);
+    } else if (state.activeTab === "usuarios") {
+      await cargarUsuarios(false);
+    }
+    renderApp();
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
+}
+
+async function cargarCalendarioDesdeFiltros() {
+  state.filters.fecha = document.querySelector("#filtroFecha").value;
+  state.filters.estado = "";
+  await Promise.all([cargarMesas(false), cargarReservas(false)]);
+  renderApp();
+}
+
+async function cargarDashboard(render = true) {
+  state.stats = await api("/dashboard/stats");
+  if (render) renderApp();
+}
+
+async function cargarReservasDesdeFiltros() {
+  state.filters.fecha = document.querySelector("#filtroFecha").value;
+  state.filters.estado = document.querySelector("#filtroEstado").value;
+  await cargarReservas();
+}
+
+async function cargarReservas(render = true) {
+  const params = new URLSearchParams();
+  if (state.filters.fecha) params.append("fecha", state.filters.fecha);
+  if (state.filters.estado) params.append("estado", state.filters.estado);
+  state.reservas = await api(`/reservas/?${params.toString()}`);
+  if (render) renderApp();
+}
+
+async function cargarMesasDesdeFiltros() {
+  state.filters.fecha = document.querySelector("#filtroFecha").value;
+  await cargarMesas();
+}
+
+async function cargarMesas(render = true) {
+  const params = new URLSearchParams();
+  if (state.filters.fecha) params.append("fecha", state.filters.fecha);
+  state.mesas = await api(`/dashboard/mesas?${params.toString()}`);
+  if (render) renderApp();
+}
+
+async function cargarUsuarios(render = true) {
+  state.usuarios = await api("/usuarios/");
+  if (render) renderApp();
+}
+
+async function crearReserva(event) {
+  event.preventDefault();
+  try {
+    await api("/reservas/", {
+      method: "POST",
+      body: JSON.stringify({
+        cliente_nombre: document.querySelector("#nombre").value,
+        cliente_telefono: document.querySelector("#telefono").value,
+        personas: Number(document.querySelector("#personas").value),
+        fecha: document.querySelector("#fecha").value,
+        hora: document.querySelector("#hora").value,
+        observaciones: document.querySelector("#observaciones").value,
+      }),
+    });
+    state.filters.fecha = document.querySelector("#fecha").value;
+    await Promise.all([cargarReservas(false), cargarMesas(false)]);
+    renderApp();
+    setMessage("Reserva creada.", "success");
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
+}
+
+async function crearMesa(event) {
+  event.preventDefault();
+  try {
+    await api("/mesas/", {
+      method: "POST",
+      body: JSON.stringify({
+        nombre: document.querySelector("#mesaNombre").value,
+        capacidad: Number(document.querySelector("#mesaCapacidad").value),
+        zona: document.querySelector("#mesaZona").value,
+      }),
+    });
+    await cargarMesas(false);
+    renderApp();
+    setMessage("Mesa creada.", "success");
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
+}
+
+async function crearUsuario(event) {
+  event.preventDefault();
+  try {
+    await api("/usuarios/", {
+      method: "POST",
+      body: JSON.stringify({
+        nombre: document.querySelector("#usuarioNombre").value,
+        email: document.querySelector("#usuarioEmail").value,
+        password: document.querySelector("#usuarioPassword").value,
+        rol: document.querySelector("#usuarioRol").value,
+      }),
+    });
+    await cargarUsuarios(false);
+    renderApp();
+    setMessage("Usuario creado.", "success");
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
+}
+
+async function manejarAccion(event) {
+  const button = event.currentTarget;
+  const id = Number(button.dataset.id);
+  const action = button.dataset.action;
+
+  try {
+    if (action === "detalle") {
+      state.selectedReservaId = id;
+      if (!state.mesas.length) await cargarMesas(false);
+      renderApp();
+      return;
     }
 
-    <h2>Calendario diario</h2>
-    <div class="filters">
-      <input id="calendarioFecha" type="date" />
-      <button id="cargarCalendario">Ver día</button>
-    </div>
-    <div id="calendario" class="calendario"></div>
-  `;
+    if (action === "cerrar-detalle") {
+      state.selectedReservaId = null;
+      renderApp();
+      return;
+    }
 
-  conectarEventosPanel();
+    if (action === "confirmar") {
+      await api(`/reservas/${id}/confirmar`, { method: "PATCH" });
+      state.selectedReservaId = id;
+      await Promise.all([cargarReservas(false), cargarMesas(false)]);
+    }
+
+    if (action === "cancelar") {
+      await api(`/reservas/${id}/cancelar`, { method: "PATCH" });
+      state.selectedReservaId = id;
+      await Promise.all([cargarReservas(false), cargarMesas(false)]);
+    }
+
+    if (action === "asignar") {
+      const mesaId = Number(document.querySelector(`[data-mesa-reserva="${id}"]`).value);
+      if (!mesaId) throw new Error("Selecciona una mesa");
+      await api(`/reservas/${id}/asignar-mesa`, {
+        method: "PATCH",
+        body: JSON.stringify({ mesa_id: mesaId }),
+      });
+      state.selectedReservaId = id;
+      await Promise.all([cargarReservas(false), cargarMesas(false)]);
+    }
+
+    if (action === "toggle-mesa") {
+      await api(`/mesas/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ activa: button.dataset.activa !== "true" }),
+      });
+      await cargarMesas(false);
+    }
+
+    if (action === "toggle-usuario") {
+      await api(`/usuarios/${id}/toggle`, { method: "PATCH" });
+      await cargarUsuarios(false);
+    }
+
+    renderApp();
+    setMessage("Cambios guardados.", "success");
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
 }
 
-function conectarEventosPanel() {
-  document.querySelector("#cargarReservas").addEventListener("click", cargarReservas);
-  document.querySelector("#cargarMesas").addEventListener("click", cargarMesas);
-  document.querySelector("#cargarCalendario").addEventListener("click", cargarCalendario);
-
-  const formReserva = document.querySelector("#formReserva");
-  if (formReserva) {
-    formReserva.addEventListener("submit", crearReserva);
-  }
-
-  const formMesa = document.querySelector("#formMesa");
-  if (formMesa) {
-    formMesa.addEventListener("submit", crearMesa);
-  }
-
-  const formUsuario = document.querySelector("#formUsuario");
-  if (formUsuario) {
-    formUsuario.addEventListener("submit", crearUsuario);
-  }
-
-  const cargarUsuariosBtn = document.querySelector("#cargarUsuarios");
-  if (cargarUsuariosBtn) {
-    cargarUsuariosBtn.addEventListener("click", cargarUsuarios);
-  }
+if (state.user && state.token) {
+  renderApp();
+  cargarDatosVista();
+} else {
+  renderLogin();
 }
-
-async function crearReserva(e) {
-  e.preventDefault();
-
-  const reserva = {
-    cliente_nombre: document.querySelector("#nombre").value,
-    cliente_telefono: document.querySelector("#telefono").value,
-    personas: Number(document.querySelector("#personas").value),
-    fecha: document.querySelector("#fecha").value,
-    hora: document.querySelector("#hora").value,
-    observaciones: document.querySelector("#observaciones").value,
-  };
-
-  const response = await fetch(`${API_URL}/reservas/`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(reserva),
-  });
-
-  if (!response.ok) {
-    alert("No se pudo crear la reserva");
-    return;
-  }
-
-  e.target.reset();
-  await cargarReservas();
-  await cargarMesas();
-}
-
-async function cargarReservas() {
-  const fecha = document.querySelector("#filtroFecha").value;
-  const estado = document.querySelector("#filtroEstado").value;
-
-  const params = new URLSearchParams();
-
-  if (fecha) params.append("fecha", fecha);
-  if (estado) params.append("estado", estado);
-
-  const response = await fetch(`${API_URL}/reservas/?${params.toString()}`, {
-    headers: authHeaders(),
-  });
-
-  if (!response.ok) {
-    alert("No se pudieron cargar las reservas");
-    return;
-  }
-
-  const reservas = await response.json();
-  const contenedor = document.querySelector("#reservas");
-
-  if (reservas.length === 0) {
-    contenedor.innerHTML = "<p>No hay reservas.</p>";
-    return;
-  }
-
-  contenedor.innerHTML = reservas
-    .map(
-      (reserva) => `
-      <div class="card">
-        <h3>${reserva.cliente_nombre}</h3>
-        <p><strong>Teléfono:</strong> ${reserva.cliente_telefono}</p>
-        <p><strong>Personas:</strong> ${reserva.personas}</p>
-        <p><strong>Fecha:</strong> ${reserva.fecha}</p>
-        <p><strong>Hora:</strong> ${reserva.hora}</p>
-        <p><strong>Estado:</strong> ${reserva.estado}</p>
-        <p><strong>Mesa:</strong> ${reserva.mesa_id ?? "Sin asignar"}</p>
-
-        ${
-          usuarioActual.rol !== "empleado"
-            ? `
-          <button onclick="confirmarReserva(${reserva.id})">Confirmar</button>
-          <button onclick="cancelarReserva(${reserva.id})" class="danger">Cancelar</button>
-        `
-            : ""
-        }
-      </div>
-    `
-    )
-    .join("");
-}
-
-async function confirmarReserva(id) {
-  const response = await fetch(`${API_URL}/reservas/${id}/confirmar`, {
-    method: "PATCH",
-    headers: authHeaders(),
-  });
-
-  if (!response.ok) {
-    alert("No se pudo confirmar la reserva");
-    return;
-  }
-
-  await cargarReservas();
-  await cargarMesas();
-}
-
-async function cancelarReserva(id) {
-  const response = await fetch(`${API_URL}/reservas/${id}/cancelar`, {
-    method: "PATCH",
-    headers: authHeaders(),
-  });
-
-  if (!response.ok) {
-    alert("No se pudo cancelar la reserva");
-    return;
-  }
-
-  await cargarReservas();
-  await cargarMesas();
-}
-
-async function cargarMesas() {
-  const response = await fetch(`${API_URL}/dashboard/mesas`);
-
-  if (!response.ok) {
-    alert("No se pudieron cargar las mesas");
-    return;
-  }
-
-  const mesas = await response.json();
-
-  document.querySelector("#mesas").innerHTML = mesas
-    .map(
-      (mesa) => `
-      <div class="mesa-card mesa-${mesa.estado}">
-        <h3>${mesa.nombre}</h3>
-        <p>${mesa.capacidad} personas</p>
-        <p>${mesa.estado}</p>
-
-        ${
-          usuarioActual.rol === "admin"
-            ? `
-          <button onclick="desactivarMesa(${mesa.id})" class="danger">
-            Desactivar
-          </button>
-        `
-            : ""
-        }
-      </div>
-    `
-    )
-    .join("");
-}
-
-async function crearMesa(e) {
-  e.preventDefault();
-
-  const mesa = {
-    nombre: document.querySelector("#mesaNombre").value,
-    capacidad: Number(document.querySelector("#mesaCapacidad").value),
-    zona: document.querySelector("#mesaZona").value,
-  };
-
-  const response = await fetch(`${API_URL}/mesas/`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(mesa),
-  });
-
-  if (!response.ok) {
-    alert("No se pudo crear la mesa");
-    return;
-  }
-
-  e.target.reset();
-  await cargarMesas();
-}
-
-async function desactivarMesa(id) {
-  const response = await fetch(`${API_URL}/mesas/${id}`, {
-    method: "DELETE",
-    headers: authHeaders(),
-  });
-
-  if (!response.ok) {
-    alert("No se pudo desactivar la mesa");
-    return;
-  }
-
-  await cargarMesas();
-}
-
-async function cargarCalendario() {
-  const fecha = document.querySelector("#calendarioFecha").value;
-
-  if (!fecha) {
-    alert("Selecciona una fecha");
-    return;
-  }
-
-  const response = await fetch(`${API_URL}/reservas/?fecha=${fecha}`, {
-    headers: authHeaders(),
-  });
-
-  if (!response.ok) {
-    alert("No se pudo cargar el calendario");
-    return;
-  }
-
-  const reservas = await response.json();
-  const contenedor = document.querySelector("#calendario");
-
-  if (reservas.length === 0) {
-    contenedor.innerHTML = "<p>No hay reservas para este día.</p>";
-    return;
-  }
-
-  contenedor.innerHTML = reservas
-    .map(
-      (reserva) => `
-      <div class="calendar-row estado-${reserva.estado}">
-        <div><strong>${reserva.hora}</strong></div>
-        <div>
-          ${reserva.cliente_nombre}<br />
-          <small>${reserva.personas} personas · Mesa ${reserva.mesa_id ?? "sin asignar"}</small>
-        </div>
-        <div>${reserva.estado}</div>
-      </div>
-    `
-    )
-    .join("");
-}
-
-async function cargarUsuarios() {
-  const response = await fetch(`${API_URL}/usuarios/`, {
-    headers: authHeaders(),
-  });
-
-  if (!response.ok) {
-    alert("No se pudieron cargar los usuarios");
-    return;
-  }
-
-  const usuarios = await response.json();
-
-  document.querySelector("#usuarios").innerHTML = usuarios
-    .map(
-      (usuario) => `
-      <div class="card">
-        <h3>${usuario.nombre}</h3>
-        <p><strong>Email:</strong> ${usuario.email}</p>
-        <p><strong>Rol:</strong> ${usuario.rol}</p>
-        <p><strong>Activo:</strong> ${usuario.activo ? "Sí" : "No"}</p>
-
-        <button onclick="toggleUsuario(${usuario.id})">
-          ${usuario.activo ? "Desactivar" : "Activar"}
-        </button>
-      </div>
-    `
-    )
-    .join("");
-}
-
-async function crearUsuario(e) {
-  e.preventDefault();
-
-  const usuario = {
-    nombre: document.querySelector("#usuarioNombre").value,
-    email: document.querySelector("#usuarioEmail").value,
-    password: document.querySelector("#usuarioPassword").value,
-    rol: document.querySelector("#usuarioRol").value,
-  };
-
-  const response = await fetch(`${API_URL}/usuarios/`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(usuario),
-  });
-
-  if (!response.ok) {
-    alert("No se pudo crear el usuario");
-    return;
-  }
-
-  e.target.reset();
-  await cargarUsuarios();
-}
-
-async function toggleUsuario(id) {
-  const response = await fetch(`${API_URL}/usuarios/${id}/toggle`, {
-    method: "PATCH",
-    headers: authHeaders(),
-  });
-
-  if (!response.ok) {
-    alert("No se pudo cambiar el estado del usuario");
-    return;
-  }
-
-  await cargarUsuarios();
-}
-
-window.desactivarMesa = desactivarMesa;
-window.toggleUsuario = toggleUsuario;
-window.confirmarReserva = confirmarReserva;
-window.cancelarReserva = cancelarReserva;
