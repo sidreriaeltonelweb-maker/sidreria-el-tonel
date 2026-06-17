@@ -14,15 +14,24 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
 
     if not user:
-        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+        raise HTTPException(
+            status_code=401,
+            detail="Usuario o contraseña incorrectos"
+        )
 
     if not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+        raise HTTPException(
+            status_code=401,
+            detail="Usuario o contraseña incorrectos"
+        )
 
     if not user.activo:
-        raise HTTPException(status_code=403, detail="Usuario desactivado")
+        raise HTTPException(
+            status_code=403,
+            detail="Usuario desactivado"
+        )
 
-       access_token = create_access_token(
+    access_token = create_access_token(
         data={
             "sub": user.email,
             "user_id": user.id,
