@@ -19,6 +19,7 @@ const state = {
   usuarios: [],
   stats: null,
   selectedReservaId: null,
+  selectedMesaId: null,
   filters: {
     fecha: new Date().toISOString().slice(0, 10),
     estado: "",
@@ -73,6 +74,10 @@ function zonaLabel(zona) {
 
 function getSelectedReserva() {
   return state.reservas.find((reserva) => reserva.id === state.selectedReservaId) || null;
+}
+
+function getSelectedMesa() {
+  return state.mesas.find((mesa) => mesa.id === state.selectedMesaId) || null;
 }
 
 function authHeaders() {
@@ -174,6 +179,7 @@ function renderApp() {
         <div id="message" class="message"></div>
         ${renderTab()}
         ${renderReservaDetalle()}
+        ${renderMesaDetalle()}
       </main>
     </div>
   `;
@@ -181,6 +187,7 @@ function renderApp() {
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeTab = button.dataset.tab;
+      state.selectedMesaId = null;
       renderApp();
       cargarDatosVista();
     });
@@ -578,8 +585,62 @@ function renderMesaCard(mesa) {
       <h3>${escapeHtml(mesa.nombre)}</h3>
       <p>${mesa.capacidad} personas · ${zonaLabel(mesa.zona)}</p>
       <strong>${escapeHtml(mesa.estado)}</strong>
-      ${puedeAdministrar() ? `<button data-action="toggle-mesa" data-id="${mesa.id}" data-activa="${mesa.activa}" class="${mesa.activa ? "danger" : "secondary"}">${mesa.activa ? "Desactivar" : "Activar"}</button>` : ""}
+      ${puedeAdministrar() ? `
+        <div class="mesa-actions">
+          <button data-action="editar-mesa" data-id="${mesa.id}" class="secondary">Editar</button>
+          <button data-action="toggle-mesa" data-id="${mesa.id}" data-activa="${mesa.activa}" class="${mesa.activa ? "danger" : "secondary"}">${mesa.activa ? "Desactivar" : "Activar"}</button>
+        </div>
+      ` : ""}
     </article>
+  `;
+}
+
+function renderMesaDetalle() {
+  if (!puedeAdministrar() || state.activeTab !== "mesas") return "";
+  const mesa = getSelectedMesa();
+  if (!mesa) return "";
+
+  return `
+    <div class="modal-backdrop" role="presentation">
+      <section class="reservation-detail" role="dialog" aria-modal="true" aria-labelledby="editarMesaTitulo">
+        <header>
+          <button type="button" data-action="cerrar-edicion-mesa" class="icon-button" aria-label="Cerrar">×</button>
+          <div>
+            <p class="eyebrow">Mesa #${mesa.id}</p>
+            <h2 id="editarMesaTitulo">Editar mesa</h2>
+          </div>
+          <span class="status ${mesa.activa ? "confirmada" : "cancelada"}">${mesa.activa ? "Activa" : "Inactiva"}</span>
+        </header>
+        <form id="editarMesaForm" class="form edit-table-form">
+          <label>
+            Nombre
+            <input id="editarMesaNombre" value="${escapeHtml(mesa.nombre)}" required />
+          </label>
+          <label>
+            Capacidad
+            <input id="editarMesaCapacidad" type="number" min="1" value="${mesa.capacidad}" required />
+          </label>
+          <label>
+            Comedor
+            <select id="editarMesaZona" required>
+              <option value="interior" ${mesa.zona === "interior" ? "selected" : ""}>Comedor interior</option>
+              <option value="exterior" ${mesa.zona === "exterior" ? "selected" : ""}>Terraza exterior</option>
+            </select>
+          </label>
+          <label>
+            Estado
+            <select id="editarMesaActiva" required>
+              <option value="true" ${mesa.activa ? "selected" : ""}>Activa</option>
+              <option value="false" ${!mesa.activa ? "selected" : ""}>Inactiva</option>
+            </select>
+          </label>
+          <div class="detail-actions">
+            <button type="button" data-action="cerrar-edicion-mesa" class="secondary">Cancelar</button>
+            <button type="submit">Guardar cambios</button>
+          </div>
+        </form>
+      </section>
+    </div>
   `;
 }
 
@@ -639,6 +700,7 @@ function conectarEventosVista() {
   document.querySelector("#cargarCalendario")?.addEventListener("click", cargarCalendarioDesdeFiltros);
   document.querySelector("#formReserva")?.addEventListener("submit", crearReserva);
   document.querySelector("#formMesa")?.addEventListener("submit", crearMesa);
+  document.querySelector("#editarMesaForm")?.addEventListener("submit", guardarMesa);
   document.querySelector("#formUsuario")?.addEventListener("submit", crearUsuario);
 
   document.querySelector("#filtroFecha")?.addEventListener("change", (event) => {
@@ -796,6 +858,30 @@ async function crearMesa(event) {
   }
 }
 
+async function guardarMesa(event) {
+  event.preventDefault();
+  const mesa = getSelectedMesa();
+  if (!mesa) return;
+
+  try {
+    await api(`/mesas/${mesa.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        nombre: document.querySelector("#editarMesaNombre").value,
+        capacidad: Number(document.querySelector("#editarMesaCapacidad").value),
+        zona: document.querySelector("#editarMesaZona").value,
+        activa: document.querySelector("#editarMesaActiva").value === "true",
+      }),
+    });
+    state.selectedMesaId = null;
+    await cargarMesas(false);
+    renderApp();
+    setMessage("Mesa actualizada.", "success");
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
+}
+
 async function crearUsuario(event) {
   event.preventDefault();
   try {
@@ -831,6 +917,18 @@ async function manejarAccion(event) {
 
     if (action === "cerrar-detalle") {
       state.selectedReservaId = null;
+      renderApp();
+      return;
+    }
+
+    if (action === "editar-mesa") {
+      state.selectedMesaId = id;
+      renderApp();
+      return;
+    }
+
+    if (action === "cerrar-edicion-mesa") {
+      state.selectedMesaId = null;
       renderApp();
       return;
     }

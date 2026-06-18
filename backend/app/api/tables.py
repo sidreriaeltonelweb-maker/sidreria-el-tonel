@@ -1,7 +1,10 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, require_admin
 from app.db.database import get_db
+from app.models.reservation import Reservation
 from app.models.table import Table
 from app.models.user import User
 from app.schemas.table import TableCreate, TableUpdate
@@ -30,7 +33,25 @@ def actualizar_mesa(mesa_id: int, data: TableUpdate, db: Session = Depends(get_d
     mesa = db.query(Table).filter(Table.id == mesa_id).first()
     if not mesa:
         raise HTTPException(status_code=404, detail="Mesa no encontrada")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    cambios = data.model_dump(exclude_unset=True)
+    nuevo_nombre = cambios.get("nombre")
+    if nuevo_nombre and db.query(Table).filter(
+        Table.id != mesa.id, Table.nombre == nuevo_nombre
+    ).first():
+        raise HTTPException(status_code=400, detail="Ya existe una mesa con ese nombre")
+
+    nueva_zona = cambios.get("zona")
+    if nueva_zona and nueva_zona != mesa.zona:
+        db.query(Reservation).filter(
+            Reservation.mesa_id == mesa.id,
+            Reservation.fecha >= date.today(),
+            Reservation.estado.in_(["pendiente", "confirmada"]),
+        ).update(
+            {Reservation.zona_preferida: nueva_zona},
+            synchronize_session=False,
+        )
+
+    for field, value in cambios.items():
         setattr(mesa, field, value)
     db.commit()
     db.refresh(mesa)

@@ -522,6 +522,18 @@ h3 {
   margin-top: 8px;
 }
 
+.mesa-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mesa-actions button {
+  width: 100%;
+  margin-top: 0;
+}
+
 .mesa-libre {
   background: var(--ok-bg);
   border-top-color: #2e7d32;
@@ -736,6 +748,19 @@ h3 {
   flex: 1 1 180px;
 }
 
+.edit-table-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 18px;
+}
+
+.edit-table-form .detail-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  padding: 16px 0 0;
+}
+
 @media (max-width: 760px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -821,6 +846,10 @@ h3 {
 
   .calendar-slot,
   .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .edit-table-form {
     grid-template-columns: 1fr;
   }
 
