@@ -1,3 +1,5 @@
+import "./style.css";
+
 const isLocalNetwork =
   ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
   /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(window.location.hostname);
