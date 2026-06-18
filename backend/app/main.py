@@ -47,5 +47,5 @@ def root():
         "restaurante": "Sidrería El Tonel",
         "estado": "online",
         "entorno": settings.ENVIRONMENT,
-        "version": "1.1.0",
+        "version": "1.2.0",
     }
