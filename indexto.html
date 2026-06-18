@@ -457,6 +457,10 @@ Horario: de 11:30 a 23:00. Cerrado los miércoles.
 <input id="cliente_nombre" type="text" placeholder="Nombre" required>
 <input id="cliente_telefono" type="tel" placeholder="Teléfono" required>
 <input id="personas" type="number" min="1" max="30" placeholder="Número de personas" required>
+<select id="zona_preferida" required>
+<option value="interior">Comedor interior</option>
+<option value="exterior">Terraza exterior</option>
+</select>
 <input id="fecha" type="date" required>
 <input id="hora" type="time" min="11:30" max="23:00" required>
 <textarea id="observaciones" rows="4" placeholder="Observaciones: carrito, terraza, alergias, etc."></textarea>
@@ -523,6 +527,7 @@ formReservaWeb.addEventListener("submit", async (e) => {
     cliente_nombre: document.querySelector("#cliente_nombre").value.trim(),
     cliente_telefono: document.querySelector("#cliente_telefono").value.trim(),
     personas: Number(document.querySelector("#personas").value),
+    zona_preferida: document.querySelector("#zona_preferida").value,
     fecha,
     hora,
     observaciones: document.querySelector("#observaciones").value.trim()

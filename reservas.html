@@ -41,6 +41,13 @@
           <input id="personas" type="number" min="1" max="30" value="2" required />
         </div>
         <div>
+          <label for="zona_preferida">Comedor</label>
+          <select id="zona_preferida" required>
+            <option value="interior">Comedor interior</option>
+            <option value="exterior">Terraza exterior</option>
+          </select>
+        </div>
+        <div>
           <label for="cliente_nombre">Nombre</label>
           <input id="cliente_nombre" placeholder="Nombre y apellidos" required />
         </div>
@@ -122,6 +129,7 @@
         cliente_nombre: document.querySelector("#cliente_nombre").value.trim(),
         cliente_telefono: document.querySelector("#cliente_telefono").value.trim(),
         personas: Number(document.querySelector("#personas").value),
+        zona_preferida: document.querySelector("#zona_preferida").value,
         fecha,
         hora,
         observaciones: document.querySelector("#observaciones").value.trim(),

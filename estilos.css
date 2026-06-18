@@ -124,7 +124,8 @@
     font-weight:800;
 }
 
-.reservas-form input{
+.reservas-form input,
+.reservas-form select{
     min-height:44px;
     width:100%;
     border:1px solid #e0d7c7;
