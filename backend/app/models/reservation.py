@@ -12,6 +12,7 @@ class Reservation(Base):
     fecha = Column(Date, nullable=False)
     hora = Column(Time, nullable=False)
     estado = Column(String, default="pendiente")
+    zona_preferida = Column(String, nullable=False, default="interior")
     observaciones = Column(String, nullable=True)
     mesa_id = Column(Integer, ForeignKey("mesas.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

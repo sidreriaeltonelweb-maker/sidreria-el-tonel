@@ -8,6 +8,6 @@ class Table(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, nullable=False)
     capacidad = Column(Integer, nullable=False)
-    zona = Column(String, default="principal")
+    zona = Column(String, default="interior")
     activa = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 from pydantic import field_validator
 
@@ -5,7 +7,7 @@ from pydantic import field_validator
 class TableCreate(BaseModel):
     nombre: str
     capacidad: int
-    zona: str = "principal"
+    zona: Literal["interior", "exterior"] = "interior"
 
     @field_validator("nombre", "zona")
     @classmethod
@@ -26,7 +28,7 @@ class TableCreate(BaseModel):
 class TableUpdate(BaseModel):
     nombre: str | None = None
     capacidad: int | None = None
-    zona: str | None = None
+    zona: Literal["interior", "exterior"] | None = None
     activa: bool | None = None
 
     @field_validator("nombre", "zona")

@@ -3,6 +3,7 @@ import os
 from app.core.security import hash_password, verify_password
 from app.db.init_db import init_db
 from app.db.database import SessionLocal
+from app.models.reservation import Reservation
 from app.models.table import Table
 from app.models.user import User
 
@@ -46,10 +47,31 @@ def seed_data() -> None:
                     Table(
                         nombre=nombre,
                         capacidad=capacidad,
-                        zona="principal",
+                        zona="interior" if int(nombre.split()[-1]) <= 10 else "exterior",
                         activa=True,
                     )
                 )
+
+        for mesa in db.query(Table).filter(
+            Table.zona.in_(["principal", "salon", "salón", ""])
+            | Table.zona.is_(None)
+        ):
+            try:
+                numero = int(mesa.nombre.split()[-1])
+            except (ValueError, IndexError):
+                numero = 1
+            mesa.zona = "interior" if numero <= 10 else "exterior"
+
+        db.flush()
+        zonas_por_mesa = {
+            mesa.id: mesa.zona for mesa in db.query(Table).all()
+        }
+        for reserva in db.query(Reservation).filter(
+            Reservation.mesa_id.isnot(None)
+        ):
+            reserva.zona_preferida = zonas_por_mesa.get(
+                reserva.mesa_id, reserva.zona_preferida
+            )
 
         db.commit()
     finally:

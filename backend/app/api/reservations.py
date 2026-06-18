@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, require_encargado_or_admin
@@ -12,12 +13,14 @@ router = APIRouter(prefix="/reservas", tags=["Reservas"])
 
 
 @router.get("/")
-def listar_reservas(fecha: date | None = None, estado: str | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def listar_reservas(fecha: date | None = None, estado: str | None = None, zona: Literal["interior", "exterior"] | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     query = db.query(Reservation)
     if fecha:
         query = query.filter(Reservation.fecha == fecha)
     if estado:
         query = query.filter(Reservation.estado == estado)
+    if zona:
+        query = query.filter(Reservation.zona_preferida == zona)
     return query.order_by(Reservation.fecha, Reservation.hora).all()
 
 
@@ -30,13 +33,19 @@ def crear_reserva(data: ReservationCreate, db: Session = Depends(get_db)):
         Reservation.mesa_id.isnot(None),
     ).all()
     ids = [m[0] for m in ocupadas]
-    mesa = db.query(Table).filter(Table.activa == True, Table.capacidad >= data.personas, ~Table.id.in_(ids)).order_by(Table.capacidad.asc()).first()
+    mesa = db.query(Table).filter(
+        Table.activa == True,
+        Table.zona == data.zona_preferida,
+        Table.capacidad >= data.personas,
+        ~Table.id.in_(ids),
+    ).order_by(Table.capacidad.asc()).first()
     reserva = Reservation(
         cliente_nombre=data.cliente_nombre,
         cliente_telefono=data.cliente_telefono,
         personas=data.personas,
         fecha=data.fecha,
         hora=data.hora,
+        zona_preferida=data.zona_preferida,
         observaciones=data.observaciones,
         estado="pendiente",
         mesa_id=mesa.id if mesa else None,
@@ -57,6 +66,8 @@ def asignar_mesa(reserva_id: int, data: ReservationAssignTable, db: Session = De
         raise HTTPException(status_code=404, detail="Mesa no encontrada o inactiva")
     if mesa.capacidad < reserva.personas:
         raise HTTPException(status_code=400, detail="La mesa no tiene capacidad suficiente")
+    if mesa.zona != reserva.zona_preferida:
+        raise HTTPException(status_code=400, detail="La mesa pertenece a otro comedor")
     ocupada = db.query(Reservation).filter(
         Reservation.id != reserva.id,
         Reservation.mesa_id == mesa.id,

@@ -54,6 +54,7 @@ def estadisticas(db: Session = Depends(get_db), current_user: User = Depends(get
                 "hora": reserva.hora,
                 "estado": reserva.estado,
                 "mesa_id": reserva.mesa_id,
+                "zona_preferida": reserva.zona_preferida,
             }
             for reserva in proximas
         ],

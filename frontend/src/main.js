@@ -22,6 +22,7 @@ const state = {
   filters: {
     fecha: new Date().toISOString().slice(0, 10),
     estado: "",
+    zona: "",
   },
 };
 
@@ -64,6 +65,10 @@ function puedeAdministrar() {
 
 function formatHora(value = "") {
   return String(value).slice(0, 5);
+}
+
+function zonaLabel(zona) {
+  return zona === "exterior" ? "Terraza exterior" : "Comedor interior";
 }
 
 function getSelectedReserva() {
@@ -273,7 +278,7 @@ function renderReservaCompacta(reserva) {
   return `
     <article class="compact-row">
       <strong>${escapeHtml(formatHora(reserva.hora))} · ${escapeHtml(reserva.cliente_nombre)}</strong>
-      <span>${reserva.personas} personas · ${escapeHtml(reserva.fecha)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</span>
+      <span>${reserva.personas} personas · ${zonaLabel(reserva.zona_preferida)} · ${escapeHtml(reserva.fecha)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</span>
       <em class="status ${escapeHtml(reserva.estado)}">${escapeHtml(reserva.estado)}</em>
     </article>
   `;
@@ -309,6 +314,11 @@ function renderReservas() {
           <option value="confirmada" ${state.filters.estado === "confirmada" ? "selected" : ""}>Confirmadas</option>
           <option value="cancelada" ${state.filters.estado === "cancelada" ? "selected" : ""}>Canceladas</option>
         </select>
+        <select id="filtroZona">
+          <option value="">Todos los comedores</option>
+          <option value="interior" ${state.filters.zona === "interior" ? "selected" : ""}>Comedor interior</option>
+          <option value="exterior" ${state.filters.zona === "exterior" ? "selected" : ""}>Terraza exterior</option>
+        </select>
         <button id="cargarReservas">Actualizar</button>
       </div>
     </section>
@@ -316,7 +326,8 @@ function renderReservas() {
     <section class="summary-grid">
       ${renderMetric("Pendientes", state.reservas.filter((item) => item.estado === "pendiente").length)}
       ${renderMetric("Confirmadas", state.reservas.filter((item) => item.estado === "confirmada").length)}
-      ${renderMetric("Comensales", state.reservas.reduce((total, item) => item.estado !== "cancelada" ? total + item.personas : total, 0))}
+      ${renderMetric("Interior", state.reservas.filter((item) => item.estado !== "cancelada" && item.zona_preferida === "interior").length)}
+      ${renderMetric("Exterior", state.reservas.filter((item) => item.estado !== "cancelada" && item.zona_preferida === "exterior").length)}
     </section>
 
     ${puedeGestionarReservas() ? renderReservaForm() : ""}
@@ -369,7 +380,7 @@ function renderCalendarSlot(hora) {
             ? reservasHora.map((reserva) => `
               <button class="calendar-item estado-${escapeHtml(reserva.estado)}" data-action="detalle" data-id="${reserva.id}">
                 <strong>${escapeHtml(reserva.cliente_nombre)}</strong>
-                <span>${reserva.personas} personas · Mesa ${reserva.mesa_id ?? "sin asignar"}</span>
+                <span>${reserva.personas} personas · ${zonaLabel(reserva.zona_preferida)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</span>
               </button>
             `).join("")
             : `<span class="calendar-empty">Libre</span>`
@@ -400,6 +411,10 @@ function renderReservaForm() {
         <input id="personas" type="number" min="1" placeholder="Personas" required />
         <input id="fecha" type="date" value="${state.filters.fecha}" required />
         <input id="hora" type="time" min="11:30" max="23:00" required />
+        <select id="zonaPreferida" required>
+          <option value="interior">Comedor interior</option>
+          <option value="exterior">Terraza exterior</option>
+        </select>
         <input id="observaciones" placeholder="Observaciones" />
         <button type="submit">Crear</button>
       </form>
@@ -408,13 +423,13 @@ function renderReservaForm() {
 }
 
 function renderReservaCard(reserva) {
-  const mesasDisponibles = state.mesas.filter((mesa) => mesa.activa && mesa.capacidad >= reserva.personas);
+  const mesasDisponibles = state.mesas.filter((mesa) => mesa.activa && mesa.zona === reserva.zona_preferida && mesa.capacidad >= reserva.personas);
   return `
     <article class="row-card estado-${escapeHtml(reserva.estado)}">
       <div>
         <h3>${escapeHtml(reserva.cliente_nombre)}</h3>
         <p>${escapeHtml(reserva.cliente_telefono)} · ${reserva.personas} personas</p>
-        <p>${escapeHtml(reserva.fecha)} · ${escapeHtml(formatHora(reserva.hora))} · Mesa ${reserva.mesa_id ?? "sin asignar"}</p>
+        <p>${escapeHtml(reserva.fecha)} · ${escapeHtml(formatHora(reserva.hora))} · ${zonaLabel(reserva.zona_preferida)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</p>
         ${reserva.observaciones ? `<p class="note">${escapeHtml(reserva.observaciones)}</p>` : ""}
       </div>
       <span class="status ${escapeHtml(reserva.estado)}">${escapeHtml(reserva.estado)}</span>
@@ -442,7 +457,7 @@ function renderReservaDetalle() {
   const reserva = getSelectedReserva();
   if (!reserva) return "";
 
-  const mesasDisponibles = state.mesas.filter((mesa) => mesa.activa && mesa.capacidad >= reserva.personas);
+  const mesasDisponibles = state.mesas.filter((mesa) => mesa.activa && mesa.zona === reserva.zona_preferida && mesa.capacidad >= reserva.personas);
   return `
     <div class="modal-backdrop" role="presentation">
       <section class="reservation-detail" role="dialog" aria-modal="true" aria-labelledby="detalleReservaTitulo">
@@ -460,6 +475,7 @@ function renderReservaDetalle() {
           ${renderDetailItem("Fecha", reserva.fecha)}
           ${renderDetailItem("Hora", formatHora(reserva.hora))}
           ${renderDetailItem("Personas", reserva.personas)}
+          ${renderDetailItem("Comedor", zonaLabel(reserva.zona_preferida))}
           ${renderDetailItem("Mesa asignada", reserva.mesa_id ?? "Sin asignar")}
           ${renderDetailItem("Observaciones", reserva.observaciones || "Sin observaciones")}
         </div>
@@ -513,8 +529,24 @@ function renderMesas() {
       <span class="leyenda-item inactiva">Inactiva</span>
     </div>
 
-    <section class="mesas-grid floor-plan">
-      ${state.mesas.length ? state.mesas.map(renderMesaCard).join("") : `<p class="empty">No hay mesas cargadas.</p>`}
+    <section class="dining-area">
+      <div class="section-title">
+        <h3>Comedor interior</h3>
+        <span>${state.mesas.filter((mesa) => mesa.zona === "interior").length} mesas</span>
+      </div>
+      <div class="mesas-grid floor-plan interior-plan">
+        ${state.mesas.some((mesa) => mesa.zona === "interior") ? state.mesas.filter((mesa) => mesa.zona === "interior").map(renderMesaCard).join("") : `<p class="empty">No hay mesas en el comedor interior.</p>`}
+      </div>
+    </section>
+
+    <section class="dining-area">
+      <div class="section-title">
+        <h3>Terraza exterior</h3>
+        <span>${state.mesas.filter((mesa) => mesa.zona === "exterior").length} mesas</span>
+      </div>
+      <div class="mesas-grid floor-plan exterior-plan">
+        ${state.mesas.some((mesa) => mesa.zona === "exterior") ? state.mesas.filter((mesa) => mesa.zona === "exterior").map(renderMesaCard).join("") : `<p class="empty">No hay mesas en la terraza exterior.</p>`}
+      </div>
     </section>
 
     ${
@@ -527,7 +559,10 @@ function renderMesas() {
         <form id="formMesa" class="form inline-form">
           <input id="mesaNombre" placeholder="Nombre de la mesa" required />
           <input id="mesaCapacidad" type="number" min="1" placeholder="Capacidad" required />
-          <input id="mesaZona" placeholder="Zona" value="principal" required />
+          <select id="mesaZona" required>
+            <option value="interior">Comedor interior</option>
+            <option value="exterior">Terraza exterior</option>
+          </select>
           <button type="submit">Crear</button>
         </form>
       </section>
@@ -541,7 +576,7 @@ function renderMesaCard(mesa) {
   return `
     <article class="mesa-card mesa-${escapeHtml(mesa.estado)}">
       <h3>${escapeHtml(mesa.nombre)}</h3>
-      <p>${mesa.capacidad} personas</p>
+      <p>${mesa.capacidad} personas · ${zonaLabel(mesa.zona)}</p>
       <strong>${escapeHtml(mesa.estado)}</strong>
       ${puedeAdministrar() ? `<button data-action="toggle-mesa" data-id="${mesa.id}" data-activa="${mesa.activa}" class="${mesa.activa ? "danger" : "secondary"}">${mesa.activa ? "Desactivar" : "Activar"}</button>` : ""}
     </article>
@@ -611,6 +646,9 @@ function conectarEventosVista() {
   });
   document.querySelector("#filtroEstado")?.addEventListener("change", (event) => {
     state.filters.estado = event.target.value;
+  });
+  document.querySelector("#filtroZona")?.addEventListener("change", (event) => {
+    state.filters.zona = event.target.value;
   });
 
   document.querySelectorAll("[data-action]").forEach((button) => {
@@ -685,6 +723,7 @@ async function cargarDashboard(render = true) {
 async function cargarReservasDesdeFiltros() {
   state.filters.fecha = document.querySelector("#filtroFecha").value;
   state.filters.estado = document.querySelector("#filtroEstado").value;
+  state.filters.zona = document.querySelector("#filtroZona").value;
   await cargarReservas();
 }
 
@@ -692,6 +731,7 @@ async function cargarReservas(render = true) {
   const params = new URLSearchParams();
   if (state.filters.fecha) params.append("fecha", state.filters.fecha);
   if (state.filters.estado) params.append("estado", state.filters.estado);
+  if (state.filters.zona) params.append("zona", state.filters.zona);
   state.reservas = await api(`/reservas/?${params.toString()}`);
   if (render) renderApp();
 }
@@ -724,6 +764,7 @@ async function crearReserva(event) {
         personas: Number(document.querySelector("#personas").value),
         fecha: document.querySelector("#fecha").value,
         hora: document.querySelector("#hora").value,
+        zona_preferida: document.querySelector("#zonaPreferida").value,
         observaciones: document.querySelector("#observaciones").value,
       }),
     });

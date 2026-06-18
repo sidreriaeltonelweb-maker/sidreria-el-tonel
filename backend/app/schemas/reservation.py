@@ -1,4 +1,5 @@
 from datetime import date, time
+from typing import Literal
 from pydantic import BaseModel, field_validator
 
 
@@ -8,6 +9,7 @@ class ReservationCreate(BaseModel):
     personas: int
     fecha: date
     hora: time
+    zona_preferida: Literal["interior", "exterior"] = "interior"
     observaciones: str | None = None
 
     @field_validator("cliente_nombre", "cliente_telefono")

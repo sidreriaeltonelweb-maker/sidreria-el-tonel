@@ -488,6 +488,21 @@ h3 {
     #ead7bd;
 }
 
+.dining-area {
+  margin-bottom: 24px;
+}
+
+.dining-area > .section-title {
+  margin-bottom: 10px;
+}
+
+.exterior-plan {
+  background:
+    linear-gradient(rgba(50, 91, 61, 0.09) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, rgba(50, 91, 61, 0.09) 1px, transparent 1px) 0 0 / 32px 32px,
+    #dce6d7;
+}
+
 .mesa-card {
   display: grid;
   gap: 8px;
