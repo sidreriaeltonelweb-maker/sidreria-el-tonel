@@ -33,8 +33,12 @@
           <input id="fecha" type="date" required />
         </div>
         <div>
-          <label for="hora">Hora</label>
+          <label for="hora">Hora de inicio</label>
           <input id="hora" type="time" min="11:30" max="23:00" required />
+        </div>
+        <div>
+          <label for="hora_fin">Hora de fin</label>
+          <input id="hora_fin" type="time" min="11:31" max="23:00" required />
         </div>
         <div>
           <label for="personas">Personas</label>
@@ -97,6 +101,13 @@
     const form = document.querySelector("#formReservaPublica");
     const msg = document.querySelector("#mensajeReserva");
     document.querySelector("#fecha").value = new Date().toISOString().slice(0, 10);
+    document.querySelector("#hora").addEventListener("change", (event) => {
+      const [horas, minutos] = event.target.value.split(":").map(Number);
+      const total = Math.min(horas * 60 + minutos + 120, 23 * 60);
+      const fin = document.querySelector("#hora_fin");
+      fin.value = `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+      fin.min = event.target.value;
+    });
 
     function mostrarMensaje(texto, tipo = "") {
       msg.textContent = texto;
@@ -112,6 +123,7 @@
 
       const fecha = document.querySelector("#fecha").value;
       const hora = document.querySelector("#hora").value;
+      const horaFin = document.querySelector("#hora_fin").value;
 
       mostrarMensaje("Enviando reserva...");
 
@@ -125,6 +137,11 @@
         return;
       }
 
+      if (!horaFin || horaFin <= hora || horaFin > "23:00") {
+        mostrarMensaje("La hora de fin debe ser posterior al inicio y no superar las 23:00.", "error");
+        return;
+      }
+
       const reserva = {
         cliente_nombre: document.querySelector("#cliente_nombre").value.trim(),
         cliente_telefono: document.querySelector("#cliente_telefono").value.trim(),
@@ -132,6 +149,7 @@
         zona_preferida: document.querySelector("#zona_preferida").value,
         fecha,
         hora,
+        hora_fin: horaFin,
         observaciones: document.querySelector("#observaciones").value.trim(),
       };
 
