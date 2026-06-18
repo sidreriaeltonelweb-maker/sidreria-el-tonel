@@ -1,4 +1,4 @@
-const CACHE_NAME = "sidreria-el-tonel-v3";
+const CACHE_NAME = "sidreria-el-tonel-v4";
 const APP_ROOT = new URL("./", self.registration.scope).pathname;
 const APP_SHELL = ["./", "manifest.json", "favicon.svg", "icon-192.png", "icon-512.png", "offline.html"]
   .map((path) => new URL(path, self.registration.scope).pathname);

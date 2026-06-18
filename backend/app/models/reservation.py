@@ -11,6 +11,7 @@ class Reservation(Base):
     personas = Column(Integer, nullable=False)
     fecha = Column(Date, nullable=False)
     hora = Column(Time, nullable=False)
+    hora_fin = Column(Time, nullable=True)
     estado = Column(String, default="pendiente")
     zona_preferida = Column(String, nullable=False, default="interior")
     observaciones = Column(String, nullable=True)

@@ -1,6 +1,7 @@
 from datetime import date
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, require_encargado_or_admin
 from app.db.database import get_db
@@ -28,7 +29,8 @@ def listar_reservas(fecha: date | None = None, estado: str | None = None, zona: 
 def crear_reserva(data: ReservationCreate, db: Session = Depends(get_db)):
     ocupadas = db.query(Reservation.mesa_id).filter(
         Reservation.fecha == data.fecha,
-        Reservation.hora == data.hora,
+        Reservation.hora < data.hora_fin,
+        func.coalesce(Reservation.hora_fin, Reservation.hora) > data.hora,
         Reservation.estado.in_(["pendiente", "confirmada"]),
         Reservation.mesa_id.isnot(None),
     ).all()
@@ -45,6 +47,7 @@ def crear_reserva(data: ReservationCreate, db: Session = Depends(get_db)):
         personas=data.personas,
         fecha=data.fecha,
         hora=data.hora,
+        hora_fin=data.hora_fin,
         zona_preferida=data.zona_preferida,
         observaciones=data.observaciones,
         estado="pendiente",
@@ -72,7 +75,8 @@ def asignar_mesa(reserva_id: int, data: ReservationAssignTable, db: Session = De
         Reservation.id != reserva.id,
         Reservation.mesa_id == mesa.id,
         Reservation.fecha == reserva.fecha,
-        Reservation.hora == reserva.hora,
+        Reservation.hora < reserva.hora_fin,
+        func.coalesce(Reservation.hora_fin, Reservation.hora) > reserva.hora,
         Reservation.estado.in_(["pendiente", "confirmada"]),
     ).first()
     if ocupada:

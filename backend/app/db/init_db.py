@@ -19,6 +19,11 @@ def init_db():
                     "VARCHAR NOT NULL DEFAULT 'interior'"
                 )
             )
+    if "hora_fin" not in columnas_reservas:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE reservas ADD COLUMN hora_fin TIME")
+            )
 
 
 if __name__ == "__main__":

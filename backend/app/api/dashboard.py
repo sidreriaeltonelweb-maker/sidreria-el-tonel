@@ -1,4 +1,5 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
+from sqlalchemy import func
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
@@ -52,6 +53,7 @@ def estadisticas(db: Session = Depends(get_db), current_user: User = Depends(get
                 "personas": reserva.personas,
                 "fecha": reserva.fecha,
                 "hora": reserva.hora,
+                "hora_fin": reserva.hora_fin,
                 "estado": reserva.estado,
                 "mesa_id": reserva.mesa_id,
                 "zona_preferida": reserva.zona_preferida,
@@ -62,8 +64,9 @@ def estadisticas(db: Session = Depends(get_db), current_user: User = Depends(get
 
 
 @router.get("/mesas")
-def estado_mesas(fecha: date | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def estado_mesas(fecha: date | None = None, hora: time | None = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     fecha = fecha or date.today()
+    hora = hora or (datetime.now().time() if fecha == date.today() else time(14, 0))
     resultado = []
     mesas = db.query(Table).order_by(Table.id).all()
     for mesa in mesas:
@@ -71,6 +74,8 @@ def estado_mesas(fecha: date | None = None, db: Session = Depends(get_db), curre
         reserva = db.query(Reservation).filter(
             Reservation.mesa_id == mesa.id,
             Reservation.fecha == fecha,
+            Reservation.hora <= hora,
+            func.coalesce(Reservation.hora_fin, Reservation.hora) > hora,
             Reservation.estado.in_(["pendiente", "confirmada"]),
         ).first()
         if reserva:

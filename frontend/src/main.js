@@ -10,6 +10,8 @@ const API_URL =
     ? `http://${["localhost", "127.0.0.1"].includes(window.location.hostname) ? "127.0.0.1" : window.location.hostname}:8000`
     : "https://sidreria-el-tonel.onrender.com");
 
+const horaActual = new Date().toTimeString().slice(0, 5);
+
 const state = {
   user: JSON.parse(localStorage.getItem("user") || "null"),
   token: localStorage.getItem("token"),
@@ -22,6 +24,7 @@ const state = {
   selectedMesaId: null,
   filters: {
     fecha: new Date().toISOString().slice(0, 10),
+    hora: horaActual >= "11:30" && horaActual <= "23:00" ? horaActual : "11:30",
     estado: "",
     zona: "",
   },
@@ -70,6 +73,16 @@ function formatHora(value = "") {
 
 function zonaLabel(zona) {
   return zona === "exterior" ? "Terraza exterior" : "Comedor interior";
+}
+
+function sugerirHoraFin() {
+  const inicio = document.querySelector("#hora");
+  const fin = document.querySelector("#horaFin");
+  if (!inicio?.value || !fin) return;
+  const [horas, minutos] = inicio.value.split(":").map(Number);
+  const total = Math.min(horas * 60 + minutos + 120, 23 * 60);
+  fin.value = `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  fin.min = inicio.value;
 }
 
 function getSelectedReserva() {
@@ -284,7 +297,7 @@ function renderStatCard(label, value, tone) {
 function renderReservaCompacta(reserva) {
   return `
     <article class="compact-row">
-      <strong>${escapeHtml(formatHora(reserva.hora))} · ${escapeHtml(reserva.cliente_nombre)}</strong>
+      <strong>${escapeHtml(formatHora(reserva.hora))}–${escapeHtml(formatHora(reserva.hora_fin))} · ${escapeHtml(reserva.cliente_nombre)}</strong>
       <span>${reserva.personas} personas · ${zonaLabel(reserva.zona_preferida)} · ${escapeHtml(reserva.fecha)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</span>
       <em class="status ${escapeHtml(reserva.estado)}">${escapeHtml(reserva.estado)}</em>
     </article>
@@ -387,7 +400,7 @@ function renderCalendarSlot(hora) {
             ? reservasHora.map((reserva) => `
               <button class="calendar-item estado-${escapeHtml(reserva.estado)}" data-action="detalle" data-id="${reserva.id}">
                 <strong>${escapeHtml(reserva.cliente_nombre)}</strong>
-                <span>${reserva.personas} personas · ${zonaLabel(reserva.zona_preferida)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</span>
+                <span>${formatHora(reserva.hora)}–${formatHora(reserva.hora_fin)} · ${reserva.personas} personas · ${zonaLabel(reserva.zona_preferida)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</span>
               </button>
             `).join("")
             : `<span class="calendar-empty">Libre</span>`
@@ -417,7 +430,8 @@ function renderReservaForm() {
         <input id="telefono" placeholder="Teléfono" required />
         <input id="personas" type="number" min="1" placeholder="Personas" required />
         <input id="fecha" type="date" value="${state.filters.fecha}" required />
-        <input id="hora" type="time" min="11:30" max="23:00" required />
+        <label class="form-field">Inicio<input id="hora" type="time" min="11:30" max="22:59" required /></label>
+        <label class="form-field">Fin<input id="horaFin" type="time" min="11:31" max="23:00" required /></label>
         <select id="zonaPreferida" required>
           <option value="interior">Comedor interior</option>
           <option value="exterior">Terraza exterior</option>
@@ -436,7 +450,7 @@ function renderReservaCard(reserva) {
       <div>
         <h3>${escapeHtml(reserva.cliente_nombre)}</h3>
         <p>${escapeHtml(reserva.cliente_telefono)} · ${reserva.personas} personas</p>
-        <p>${escapeHtml(reserva.fecha)} · ${escapeHtml(formatHora(reserva.hora))} · ${zonaLabel(reserva.zona_preferida)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</p>
+        <p>${escapeHtml(reserva.fecha)} · ${escapeHtml(formatHora(reserva.hora))}–${escapeHtml(formatHora(reserva.hora_fin))} · ${zonaLabel(reserva.zona_preferida)} · Mesa ${reserva.mesa_id ?? "sin asignar"}</p>
         ${reserva.observaciones ? `<p class="note">${escapeHtml(reserva.observaciones)}</p>` : ""}
       </div>
       <span class="status ${escapeHtml(reserva.estado)}">${escapeHtml(reserva.estado)}</span>
@@ -481,6 +495,7 @@ function renderReservaDetalle() {
           ${renderDetailItem("Teléfono", reserva.cliente_telefono)}
           ${renderDetailItem("Fecha", reserva.fecha)}
           ${renderDetailItem("Hora", formatHora(reserva.hora))}
+          ${renderDetailItem("Hora de fin", formatHora(reserva.hora_fin))}
           ${renderDetailItem("Personas", reserva.personas)}
           ${renderDetailItem("Comedor", zonaLabel(reserva.zona_preferida))}
           ${renderDetailItem("Mesa asignada", reserva.mesa_id ?? "Sin asignar")}
@@ -525,6 +540,7 @@ function renderMesas() {
       </div>
       <div class="filters">
         <input id="filtroFecha" type="date" value="${state.filters.fecha}" />
+        <input id="filtroHora" type="time" min="11:30" max="23:00" value="${state.filters.hora}" aria-label="Hora de consulta" />
         <button id="cargarMesas">Actualizar</button>
       </div>
     </section>
@@ -702,9 +718,13 @@ function conectarEventosVista() {
   document.querySelector("#formMesa")?.addEventListener("submit", crearMesa);
   document.querySelector("#editarMesaForm")?.addEventListener("submit", guardarMesa);
   document.querySelector("#formUsuario")?.addEventListener("submit", crearUsuario);
+  document.querySelector("#hora")?.addEventListener("change", sugerirHoraFin);
 
   document.querySelector("#filtroFecha")?.addEventListener("change", (event) => {
     state.filters.fecha = event.target.value;
+  });
+  document.querySelector("#filtroHora")?.addEventListener("change", (event) => {
+    state.filters.hora = event.target.value;
   });
   document.querySelector("#filtroEstado")?.addEventListener("change", (event) => {
     state.filters.estado = event.target.value;
@@ -800,12 +820,14 @@ async function cargarReservas(render = true) {
 
 async function cargarMesasDesdeFiltros() {
   state.filters.fecha = document.querySelector("#filtroFecha").value;
+  state.filters.hora = document.querySelector("#filtroHora").value;
   await cargarMesas();
 }
 
 async function cargarMesas(render = true) {
   const params = new URLSearchParams();
   if (state.filters.fecha) params.append("fecha", state.filters.fecha);
+  if (state.filters.hora) params.append("hora", state.filters.hora);
   state.mesas = await api(`/dashboard/mesas?${params.toString()}`);
   if (render) renderApp();
 }
@@ -826,6 +848,7 @@ async function crearReserva(event) {
         personas: Number(document.querySelector("#personas").value),
         fecha: document.querySelector("#fecha").value,
         hora: document.querySelector("#hora").value,
+        hora_fin: document.querySelector("#horaFin").value,
         zona_preferida: document.querySelector("#zonaPreferida").value,
         observaciones: document.querySelector("#observaciones").value,
       }),

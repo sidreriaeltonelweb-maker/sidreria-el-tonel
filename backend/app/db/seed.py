@@ -1,4 +1,5 @@
 import os
+from datetime import date, datetime, time, timedelta
 
 from app.core.security import hash_password, verify_password
 from app.db.init_db import init_db
@@ -72,6 +73,12 @@ def seed_data() -> None:
             reserva.zona_preferida = zonas_por_mesa.get(
                 reserva.mesa_id, reserva.zona_preferida
             )
+
+        for reserva in db.query(Reservation).filter(
+            Reservation.hora_fin.is_(None)
+        ):
+            fin_calculado = datetime.combine(date.today(), reserva.hora) + timedelta(hours=2)
+            reserva.hora_fin = min(fin_calculado.time(), time(23, 0))
 
         db.commit()
     finally:
