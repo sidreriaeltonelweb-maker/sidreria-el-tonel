@@ -1,5 +1,7 @@
-const CACHE_NAME = "sidreria-el-tonel-v2";
-const APP_SHELL = ["/", "/manifest.json", "/favicon.svg", "/icon-192.png", "/icon-512.png", "/offline.html"];
+const CACHE_NAME = "sidreria-el-tonel-v3";
+const APP_ROOT = new URL("./", self.registration.scope).pathname;
+const APP_SHELL = ["./", "manifest.json", "favicon.svg", "icon-192.png", "icon-512.png", "offline.html"]
+  .map((path) => new URL(path, self.registration.scope).pathname);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -22,7 +24,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (request.method !== "GET") return;
-  if (url.pathname.startsWith("/auth") || url.pathname.startsWith("/reservas") || url.pathname.startsWith("/dashboard") || url.pathname.startsWith("/mesas") || url.pathname.startsWith("/usuarios")) {
+  if (url.origin !== self.location.origin) {
     event.respondWith(fetch(request));
     return;
   }
@@ -32,10 +34,10 @@ self.addEventListener("fetch", (event) => {
       fetch(request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/", copy));
+          caches.open(CACHE_NAME).then((cache) => cache.put(APP_ROOT, copy));
           return response;
         })
-        .catch(() => caches.match("/").then((cached) => cached || caches.match("/offline.html")))
+        .catch(() => caches.match(APP_ROOT).then((cached) => cached || caches.match(`${APP_ROOT}offline.html`)))
     );
     return;
   }
