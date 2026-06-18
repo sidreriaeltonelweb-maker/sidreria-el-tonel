@@ -13,3 +13,7 @@ services:
         value: https://sidreriaeltonelweb-maker.github.io
       - key: SECRET_KEY
         generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@sidreriaeltonel.local
+      - key: ADMIN_PASSWORD
+        sync: false
