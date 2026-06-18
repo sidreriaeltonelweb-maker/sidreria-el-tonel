@@ -17,7 +17,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.PROJECT_NAME, version="1.0.0", lifespan=lifespan)
-origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
+configured_origins = [
+    origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()
+]
+origins = list(
+    dict.fromkeys(
+        configured_origins + ["https://sidreriaeltonelweb-maker.github.io"]
+    )
+)
 
 app.add_middleware(
     CORSMiddleware,
