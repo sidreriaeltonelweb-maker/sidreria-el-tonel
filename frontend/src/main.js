@@ -1,7 +1,11 @@
+const isLocalNetwork =
+  ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
+  /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(window.location.hostname);
+
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  (["localhost", "127.0.0.1"].includes(window.location.hostname)
-    ? "http://127.0.0.1:8000"
+  (isLocalNetwork
+    ? `http://${["localhost", "127.0.0.1"].includes(window.location.hostname) ? "127.0.0.1" : window.location.hostname}:8000`
     : "https://sidreria-el-tonel.onrender.com");
 
 const state = {
