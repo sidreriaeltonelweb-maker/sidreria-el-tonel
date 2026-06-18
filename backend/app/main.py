@@ -7,12 +7,12 @@ from app.api.reservations import router as reservations_router
 from app.api.tables import router as tables_router
 from app.api.users import router as users_router
 from app.core.config import settings
-from app.db.init_db import init_db
+from app.db.seed import seed_data
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    seed_data()
     yield
 
 
@@ -43,4 +43,9 @@ app.include_router(users_router)
 
 @app.get("/")
 def root():
-    return {"restaurante": "Sidrería El Tonel", "estado": "online", "entorno": settings.ENVIRONMENT}
+    return {
+        "restaurante": "Sidrería El Tonel",
+        "estado": "online",
+        "entorno": settings.ENVIRONMENT,
+        "version": "1.1.0",
+    }
