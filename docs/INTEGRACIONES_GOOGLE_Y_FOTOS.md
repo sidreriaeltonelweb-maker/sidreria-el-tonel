@@ -33,10 +33,9 @@ Al confirmar una reserva se crea el evento. Si se reasigna la mesa, el evento se
 
 1. En el mismo proyecto de Google Cloud, activar **Places API (New)** y la facturación requerida por Google Maps Platform.
 2. Crear una API key restringida a Places API.
-3. Obtener el Place ID exacto de Sidrería El Tonel mediante el buscador oficial de Place IDs.
-4. Añadir en Render:
+3. Añadir en Render:
    - `GOOGLE_PLACES_API_KEY`
-   - `GOOGLE_PLACE_ID`
-5. Desplegar de nuevo el servicio.
+   - `GOOGLE_PLACE_ID` es opcional: si queda vacío, el sistema localiza la ficha por nombre y por las coordenadas de Soto de Cangas.
+4. Desplegar de nuevo el servicio.
 
 La web muestra la puntuación, el total y las reseñas devueltas por Google, con enlace a Google Maps. La respuesta se almacena en caché durante seis horas para limitar consumo y coste.

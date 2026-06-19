@@ -8,7 +8,32 @@ _cache: dict = {"expires": 0, "data": None}
 
 
 def places_configured() -> bool:
-    return bool(settings.GOOGLE_PLACES_API_KEY and settings.GOOGLE_PLACE_ID)
+    return bool(settings.GOOGLE_PLACES_API_KEY)
+
+
+async def _resolve_place_id(client: httpx.AsyncClient) -> str:
+    if settings.GOOGLE_PLACE_ID:
+        return settings.GOOGLE_PLACE_ID
+    response = await client.post(
+        "https://places.googleapis.com/v1/places:searchText",
+        headers={
+            "X-Goog-Api-Key": settings.GOOGLE_PLACES_API_KEY,
+            "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress",
+        },
+        json={
+            "textQuery": "Sidrería El Tonel, Soto de Cangas, Asturias",
+            "languageCode": "es",
+            "locationBias": {
+                "circle": {
+                    "center": {"latitude": 43.3474171, "longitude": -5.0869037},
+                    "radius": 2000,
+                }
+            },
+        },
+    )
+    if response.is_error or not response.json().get("places"):
+        raise RuntimeError("No se pudo localizar Sidrería El Tonel en Google")
+    return response.json()["places"][0]["id"]
 
 
 async def get_google_reviews() -> dict:
@@ -17,12 +42,13 @@ async def get_google_reviews() -> dict:
     if _cache["data"] and _cache["expires"] > time.time():
         return _cache["data"]
 
-    url = f"https://places.googleapis.com/v1/places/{settings.GOOGLE_PLACE_ID}"
-    headers = {
-        "X-Goog-Api-Key": settings.GOOGLE_PLACES_API_KEY,
-        "X-Goog-FieldMask": "displayName,rating,userRatingCount,reviews,googleMapsUri",
-    }
     async with httpx.AsyncClient(timeout=20) as client:
+        place_id = await _resolve_place_id(client)
+        url = f"https://places.googleapis.com/v1/places/{place_id}"
+        headers = {
+            "X-Goog-Api-Key": settings.GOOGLE_PLACES_API_KEY,
+            "X-Goog-FieldMask": "displayName,rating,userRatingCount,reviews,googleMapsUri",
+        }
         response = await client.get(url, headers=headers, params={"languageCode": "es"})
     if response.is_error:
         raise RuntimeError("No se pudieron consultar las reseñas de Google")
