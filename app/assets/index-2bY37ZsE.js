@@ -36,6 +36,7 @@
           <span>${a(n.user.rol)}</span>
           <button id="installAppBtn" class="secondary" ${i?``:`hidden`}>Instalar app</button>
           <small class="install-help">iPhone: Compartir > Añadir a pantalla de inicio</small>
+          ${s()?`<a class="sidebar-link" href="../admin.html">Fotos web</a>`:``}
           <button id="logoutBtn" class="secondary">Salir</button>
         </div>
       </aside>
@@ -241,6 +242,7 @@
           ${M(`Personas`,e.personas)}
           ${M(`Comedor`,l(e.zona_preferida))}
           ${M(`Mesa asignada`,e.mesa_id??`Sin asignar`)}
+          ${M(`Google Calendar`,e.google_event_id?`Sincronizada`:`No sincronizada`)}
           ${M(`Observaciones`,e.observaciones||`Sin observaciones`)}
         </div>
 

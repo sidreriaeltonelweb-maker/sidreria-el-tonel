@@ -197,6 +197,46 @@ border-radius:15px;
 box-shadow:0 5px 15px rgba(0,0,0,.08);
 }
 
+.google-summary{
+display:flex;
+justify-content:center;
+align-items:center;
+gap:12px;
+margin:-20px 0 28px;
+color:#4e554f;
+font-weight:700;
+}
+
+.google-summary a,
+.opinion a{
+color:var(--verde);
+font-weight:700;
+}
+
+.review-author{
+display:flex;
+align-items:center;
+gap:10px;
+margin-bottom:12px;
+}
+
+.review-author img{
+width:42px;
+height:42px;
+border-radius:50%;
+object-fit:cover;
+}
+
+.review-stars{
+color:#b17a09;
+font-size:1.1rem;
+}
+
+.review-date{
+color:#737a74;
+font-size:.85rem;
+}
+
 .contacto{
 background:var(--oscuro);
 color:white;
@@ -281,6 +321,11 @@ background:black;
 color:white;
 text-align:center;
 padding:20px;
+}
+
+footer a{
+color:#d8bd83;
+margin-left:12px;
 }
 
 .whatsapp{
@@ -418,7 +463,7 @@ Horario: de 11:30 a 23:00. Cerrado los miércoles.
 <section id="galeria">
 <h2 class="titulo">Nuestro Restaurante</h2>
 
-<div class="galeria">
+<div class="galeria" id="galeriaDinamica">
 <img src="https://lh3.googleusercontent.com/gps-cs-s/APNQkAFfrXqaY4gKPTfYtshYOWaFWFcxyrdh8pEkQehajcI7MFj2_6UfnKf64KoRzXSQHfBINGN2-wjpFhdUjwYhPEEiOxThn5kzXbY-6qdbfPqt12ncaVeAjpbYVSybtic4qv_9s2Hy=s680-w680-h510-rw" alt="Fachada Sidrería El Tonel">
 <img src="https://lh3.googleusercontent.com/gps-cs-s/APNQkAExy0RL5y0MUE_y46llWruh2FGv_RBUCfhMHtsg22RO6JuxxrBPwDrN5ezEu9q27eUEC__FtqubpstPnJEeQpHJLQ7s73LKan86zHiMZ1QhyrsOtSATqoUd85T6X5dmBvdlgR8=s680-w680-h510-rw" alt="Restaurante">
 <img src="https://lh3.googleusercontent.com/gps-cs-s/APNQkAEuQ1XqM4sxyOy5gAAtFazHfY1dNEMHffDLPJNJBavbw9cU3kTsnaz2bKe1aQKA2DTY89mPvw1pKcIBGrLGcybk_etPQXIvTXCqHw1Uc_S-ntWS-6XIhNaNslzg0ZboAewTf6uvjhQ5kvBR=s680-w680-h510-rw" alt="Comedor">
@@ -427,9 +472,11 @@ Horario: de 11:30 a 23:00. Cerrado los miércoles.
 </section>
 
 <section>
-<h2 class="titulo">Opiniones</h2>
+<h2 class="titulo">Reseñas de Google</h2>
 
-<div class="testimonios">
+<div id="googleResumen" class="google-summary" hidden></div>
+
+<div class="testimonios" id="resenasGoogle">
 
 <div class="opinion">
 ★★★★★
@@ -479,6 +526,7 @@ Horario: de 11:30 a 23:00. Cerrado los miércoles.
 
 <footer>
 © 2026 Sidrería El Tonel - Todos los derechos reservados
+<a href="admin.html">Administración</a>
 </footer>
 
 <a class="whatsapp" href="https://wa.me/34684569175">💬</a>
@@ -497,6 +545,81 @@ const API_URL =
 
 const formReservaWeb = document.querySelector("#formReservaWeb");
 const mensajeReserva = document.querySelector("#mensajeReserva");
+
+async function cargarGaleria() {
+  try {
+    const response = await fetch(`${API_URL}/contenido/fotos`);
+    if (!response.ok) return;
+    const photos = await response.json();
+    if (!photos.length) return;
+    const gallery = document.querySelector("#galeriaDinamica");
+    gallery.replaceChildren(...photos.map((photo) => {
+      const image = document.createElement("img");
+      image.src = photo.url;
+      image.alt = photo.alt;
+      image.loading = "lazy";
+      return image;
+    }));
+  } catch (_) {}
+}
+
+async function cargarResenasGoogle() {
+  try {
+    const response = await fetch(`${API_URL}/contenido/resenas`);
+    if (!response.ok) return;
+    const data = await response.json();
+    if (!data.configured || !data.reviews.length) return;
+
+    const summary = document.querySelector("#googleResumen");
+    summary.hidden = false;
+    const score = document.createElement("strong");
+    score.textContent = `${data.puntuacion || ""} ★`;
+    const total = document.createElement("span");
+    total.textContent = `${data.total || 0} reseñas`;
+    const link = document.createElement("a");
+    link.href = data.google_maps_url || "#";
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "Ver en Google";
+    summary.replaceChildren(score, total, link);
+
+    const container = document.querySelector("#resenasGoogle");
+    container.replaceChildren(...data.reviews.map((review) => {
+      const article = document.createElement("article");
+      article.className = "opinion";
+      const author = document.createElement("div");
+      author.className = "review-author";
+      if (review.foto) {
+        const avatar = document.createElement("img");
+        avatar.src = review.foto;
+        avatar.alt = "";
+        author.append(avatar);
+      }
+      const authorText = document.createElement("div");
+      const name = document.createElement(review.autor_url ? "a" : "strong");
+      name.textContent = review.autor;
+      if (review.autor_url) {
+        name.href = review.autor_url;
+        name.target = "_blank";
+        name.rel = "noopener";
+      }
+      const date = document.createElement("div");
+      date.className = "review-date";
+      date.textContent = review.fecha_relativa;
+      authorText.append(name, date);
+      author.append(authorText);
+      const stars = document.createElement("div");
+      stars.className = "review-stars";
+      stars.textContent = "★".repeat(review.puntuacion || 5);
+      const text = document.createElement("p");
+      text.textContent = review.texto;
+      article.append(author, stars, text);
+      return article;
+    }));
+  } catch (_) {}
+}
+
+Promise.allSettled([cargarGaleria(), cargarResenasGoogle()]);
 
 document.querySelector("#hora").addEventListener("change", (event) => {
   const [horas, minutos] = event.target.value.split(":").map(Number);
