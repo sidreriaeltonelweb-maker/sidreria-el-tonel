@@ -9,6 +9,10 @@ from app.models.reservation import Reservation
 from app.models.table import Table
 from app.models.user import User
 from app.schemas.reservation import ReservationAssignTable, ReservationCreate
+from app.services.google_calendar import (
+    delete_reservation_event,
+    sync_reservation_event,
+)
 
 router = APIRouter(prefix="/reservas", tags=["Reservas"])
 
@@ -82,6 +86,11 @@ def asignar_mesa(reserva_id: int, data: ReservationAssignTable, db: Session = De
     if ocupada:
         raise HTTPException(status_code=400, detail="La mesa ya está ocupada para esa fecha y hora")
     reserva.mesa_id = mesa.id
+    if reserva.google_event_id:
+        try:
+            reserva.google_event_id = sync_reservation_event(reserva, mesa.nombre)
+        except RuntimeError as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
     db.commit()
     db.refresh(reserva)
     return reserva
@@ -94,6 +103,13 @@ def confirmar_reserva(reserva_id: int, db: Session = Depends(get_db), current_us
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
     if not reserva.mesa_id:
         raise HTTPException(status_code=400, detail="Debes asignar una mesa antes de confirmar")
+    mesa = db.query(Table).filter(Table.id == reserva.mesa_id).first()
+    try:
+        reserva.google_event_id = sync_reservation_event(
+            reserva, mesa.nombre if mesa else None
+        )
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
     reserva.estado = "confirmada"
     db.commit()
     db.refresh(reserva)
@@ -105,6 +121,11 @@ def cancelar_reserva(reserva_id: int, db: Session = Depends(get_db), current_use
     reserva = db.query(Reservation).filter(Reservation.id == reserva_id).first()
     if not reserva:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
+    try:
+        delete_reservation_event(reserva.google_event_id)
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    reserva.google_event_id = None
     reserva.estado = "cancelada"
     db.commit()
     db.refresh(reserva)

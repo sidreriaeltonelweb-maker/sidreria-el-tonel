@@ -6,6 +6,7 @@ from app.api.dashboard import router as dashboard_router
 from app.api.reservations import router as reservations_router
 from app.api.tables import router as tables_router
 from app.api.users import router as users_router
+from app.api.content import router as content_router
 from app.core.config import settings
 from app.db.seed import seed_data
 
@@ -39,6 +40,7 @@ app.include_router(tables_router)
 app.include_router(reservations_router)
 app.include_router(dashboard_router)
 app.include_router(users_router)
+app.include_router(content_router)
 
 
 @app.get("/")
@@ -47,5 +49,5 @@ def root():
         "restaurante": "Sidrería El Tonel",
         "estado": "online",
         "entorno": settings.ENVIRONMENT,
-        "version": "1.4.0",
+        "version": "1.5.0",
     }

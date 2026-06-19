@@ -185,6 +185,7 @@ function renderApp() {
           <span>${escapeHtml(state.user.rol)}</span>
           <button id="installAppBtn" class="secondary" ${deferredInstallPrompt ? "" : "hidden"}>Instalar app</button>
           <small class="install-help">iPhone: Compartir > Añadir a pantalla de inicio</small>
+          ${puedeAdministrar() ? `<a class="sidebar-link" href="../admin.html">Fotos web</a>` : ""}
           <button id="logoutBtn" class="secondary">Salir</button>
         </div>
       </aside>
@@ -499,6 +500,7 @@ function renderReservaDetalle() {
           ${renderDetailItem("Personas", reserva.personas)}
           ${renderDetailItem("Comedor", zonaLabel(reserva.zona_preferida))}
           ${renderDetailItem("Mesa asignada", reserva.mesa_id ?? "Sin asignar")}
+          ${renderDetailItem("Google Calendar", reserva.google_event_id ? "Sincronizada" : "No sincronizada")}
           ${renderDetailItem("Observaciones", reserva.observaciones || "Sin observaciones")}
         </div>
 

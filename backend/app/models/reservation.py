@@ -16,4 +16,5 @@ class Reservation(Base):
     zona_preferida = Column(String, nullable=False, default="interior")
     observaciones = Column(String, nullable=True)
     mesa_id = Column(Integer, ForeignKey("mesas.id"), nullable=True)
+    google_event_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

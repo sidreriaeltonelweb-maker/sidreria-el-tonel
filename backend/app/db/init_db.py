@@ -2,6 +2,7 @@ from sqlalchemy import inspect, text
 
 from app.db.database import Base, engine
 from app.models.reservation import Reservation
+from app.models.gallery import GalleryImage
 from app.models.table import Table
 from app.models.user import User
 
@@ -23,6 +24,11 @@ def init_db():
         with engine.begin() as connection:
             connection.execute(
                 text("ALTER TABLE reservas ADD COLUMN hora_fin TIME")
+            )
+    if "google_event_id" not in columnas_reservas:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE reservas ADD COLUMN google_event_id VARCHAR")
             )
 
 
