@@ -258,6 +258,30 @@ color:var(--verde);
 font-weight:700;
 }
 
+.google-reviews-fallback{
+max-width:720px;
+margin:0 auto;
+text-align:center;
+}
+
+.google-reviews-fallback p{
+margin:0 0 18px;
+color:#4e554f;
+line-height:1.6;
+}
+
+.google-reviews-link{
+display:inline-flex;
+align-items:center;
+justify-content:center;
+min-height:46px;
+padding:10px 20px;
+border-radius:6px;
+background:var(--verde);
+color:white !important;
+text-decoration:none;
+}
+
 .review-author{
 display:flex;
 align-items:center;
@@ -522,22 +546,10 @@ Horario: de 11:30 a 23:00. Cerrado los miércoles.
 <div id="googleResumen" class="google-summary" hidden></div>
 
 <div class="testimonios" id="resenasGoogle">
-
-<div class="opinion">
-★★★★★
-<p>Comida asturiana, buen trato y ambiente familiar.</p>
-</div>
-
-<div class="opinion">
-★★★★★
-<p>Sidra, cocina tradicional y buena ubicación en Soto de Cangas.</p>
-</div>
-
-<div class="opinion">
-★★★★★
-<p>Ideal para comer después de visitar la zona.</p>
-</div>
-
+<article class="opinion google-reviews-fallback">
+<p>Consulta las opiniones y la puntuación actual de Sidrería El Tonel directamente en su ficha oficial de Google.</p>
+<a class="google-reviews-link" href="https://www.google.com/maps?cid=3544320468174358336" target="_blank" rel="noopener">Ver reseñas en Google</a>
+</article>
 </div>
 </section>
 
@@ -622,7 +634,7 @@ async function cargarResenasGoogle() {
     const total = document.createElement("span");
     total.textContent = `${data.total || 0} reseñas`;
     const link = document.createElement("a");
-    link.href = data.google_maps_url || "#";
+    link.href = data.google_maps_url || "https://www.google.com/maps?cid=3544320468174358336";
     link.target = "_blank";
     link.rel = "noopener";
     link.textContent = "Ver en Google";
