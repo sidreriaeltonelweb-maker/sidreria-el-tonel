@@ -508,6 +508,21 @@ footer {
   text-transform: uppercase;
 }
 
+.menu-list h4 .dish-allergens {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  line-height: 1;
+}
+
+.dish-allergens img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
 .menu-list p {
   margin-top: 7px;
   color: #6d726b;
