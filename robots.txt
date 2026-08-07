@@ -1,6 +1,0 @@
-User-agent: *
-Allow: /
-Disallow: /admin.html
-Disallow: /app/
-
-Sitemap: https://sidreriaeltonelweb-maker.github.io/sidreria-el-tonel/sitemap.xml
