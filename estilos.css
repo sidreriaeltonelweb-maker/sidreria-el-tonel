@@ -523,6 +523,50 @@ footer {
   flex: 0 0 auto;
 }
 
+.dish-photo-toggle {
+  appearance: none;
+  border: 1px solid rgba(184, 138, 67, 0.55);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #7b521e;
+  background: #fffaf0;
+  font-family: Poppins, Arial, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.dish-photo-toggle[aria-expanded="true"] {
+  color: #fffaf0;
+  background: var(--verde);
+  border-color: var(--verde);
+}
+
+.dish-photo-panel {
+  width: min(360px, 100%);
+  margin: 12px 0 0;
+  overflow: hidden;
+  border: 1px solid #e0d3be;
+  border-radius: 8px;
+  background: #f7efe2;
+  box-shadow: 0 12px 28px rgba(46, 35, 22, 0.11);
+}
+
+.dish-photo-panel[hidden] {
+  display: none;
+}
+
+.dish-photo-panel img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+
 .menu-list p {
   margin-top: 7px;
   color: #6d726b;
